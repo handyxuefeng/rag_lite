@@ -255,11 +255,56 @@
         {% block content %}
         {% endblock %}
     </div>
+    <!-- Toast 提示组件 -->
+    <div class="toast-container position-fixed top-50 start-50 translate-middle p-3" style="z-index: 11">
+        <div id="dynamicToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i id="toastIcon" class="bi me-2"></i>
+                <strong class="me-auto" id="toastTitle">提示</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toastBody">
+            </div>
+        </div>
+    </div>
 
     <!-- Bootstrap JS -->
     <script src="https://static.docs-hub.com/bootstrapbundlemin_1767018104304.js"></script>
     <!-- Marked.js for Markdown rendering -->
     <script src="https://static.docs-hub.com/markedmin_1767018117982.js"></script>
+
+    <script>
+        function showToast(message, type = 'success', title = '提示', duration = 3000) {
+            const toastElement = document.getElementById('dynamicToast');
+            const toastIcon = document.getElementById('toastIcon');
+            const toastTitle = document.getElementById('toastTitle');
+            const toastBody = document.getElementById('toastBody');
+
+            const iconClasses = toastIcon.className;
+            toastIcon.className = 'bi me-2';
+
+            if (type === 'success') {
+                toastIcon.classList.add('bi-check-circle-fill', 'text-success');
+                toastElement.classList.remove('bg-danger-subtle');
+                toastElement.classList.add('bg-success-subtle');
+            } else if (type === 'error') {
+                toastIcon.classList.add('bi-exclamation-circle-fill', 'text-danger');
+                toastElement.classList.remove('bg-success-subtle');
+                toastElement.classList.add('bg-danger-subtle');
+            } else {
+                toastIcon.classList.add('bi-info-circle-fill', 'text-info');
+                toastElement.classList.remove('bg-success-subtle', 'bg-danger-subtle');
+            }
+
+            toastTitle.textContent = title;
+            toastBody.textContent = message;
+
+            const toast = new bootstrap.Toast(toastElement, {
+                delay: duration
+            });
+            toast.show();
+        }
+    </script>
     {% block extra_js %}
     {% endblock %}
 </body>

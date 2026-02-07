@@ -137,3 +137,18 @@ def delete_session(session_id):
     except Exception as e:
         logger.error(f"删除会话出错:{str(e)}")
         return error_response(f"删除会话出错:{str(e)}", 500)
+
+@bp.route("/deleteAllSessions", methods=["DELETE"])
+def delete_all_sessions():
+    current_user = get_current_user()
+    if not current_user:
+        return error_response("用户未登录", 401)
+    
+    try:
+        deleted_count = chat_service.delete_all_sessions(user_id=current_user.get("id"))
+        if not deleted_count:
+            return error_response(f"删除所有会话失败,用户ID={current_user.get('id')},会话不存在", 400)
+        return success_response(data={"affected_rows": deleted_count},message="所有会话删除成功")
+    except Exception as e:
+        logger.error(f"删除所有会话出错:{str(e)}")
+        return error_response(f"删除所有会话出错:{str(e)}", 500)

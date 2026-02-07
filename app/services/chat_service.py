@@ -111,6 +111,20 @@ class ChatService(BaseService):
             session.flush()
             logger.info(f"删除会话成功,会话ID={session_id},用户ID={user_id}")
             return chatSession.to_dict()
+    def delete_all_sessions(self,user_id):
+        """
+        删除所有会话
+        """
+        with self.create_db_transaction() as session:
+            deleted_count = session.query(ChatSession).filter(ChatSession.user_id == user_id).delete()
+            session.flush()
+            
+            if deleted_count == 0:
+                logger.warning(f"删除所有会话:用户ID={user_id},没有找到会话")
+                return {"message": "没有找到需要删除的会话"}
+           
+            logger.info(f"删除所有会话成功,用户ID={user_id},删除数量={deleted_count}")
+            return deleted_count
 
 
 

@@ -1,4 +1,4 @@
-from flask import jsonify, session, request, redirect, url_for
+from flask import jsonify, session, request, redirect, url_for, Response
 import json
 import functools
 from app.config import Config
@@ -7,13 +7,25 @@ from app.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
+def json_response(data, status_code=200):
+    """
+    创建JSON响应，确保中文字符正确显示
+    """
+    response = Response(
+        json.dumps(data, ensure_ascii=False),
+        mimetype="application/json",
+        status=status_code
+    )
+    response.headers["Content-Type"] = "application/json; charset=utf-8"
+    return response
+
+
 def success_response(data=None, message="success"):
     """
     请求成功，返回给前端的成功响应报文
     返回一个元组
     """
-
-    return (jsonify({"code": 200, "message": message, "data": data}), 200)
+    return json_response({"code": 200, "message": message, "data": data}, 200)
 
 
 def error_response(message="success", code: int = 500, data=None):
@@ -21,7 +33,7 @@ def error_response(message="success", code: int = 500, data=None):
     请求失败，返回给前端的失败的响应报文
     返回一个元组
     """
-    return (jsonify({"code": code, "message": message, "data": data}), code)
+    return json_response({"code": code, "message": message, "data": data}, code)
 
 
 def handler_api_error(func):
@@ -160,17 +172,13 @@ def response_interceptor(response):
         else:
             data = None
 
-        # 创建统一格式的响应
-        new_response = jsonify({"code": code, "message": message, "data": data})
+        # 创建统一格式的响应（使用自定义函数确保中文正确显示）
+        new_response = json_response({"code": code, "message": message, "data": data}, code)
 
         # 复制原始响应的头信息
         for header_name, header_value in response.headers.items():
             if header_name not in ["Content-Type", "Content-Length"]:
                 new_response.headers[header_name] = header_value
-
-        # 设置状态码和内容类型
-        new_response.status_code = code
-        new_response.headers["Content-Type"] = "application/json"
 
         # 序列化处理后的响应并记录日志
         try:

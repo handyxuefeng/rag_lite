@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 
-{% block title %}智能问答 - RAG Lite{% endblock %}
+{% block title %}
+智能问答 - RAG Lite
+{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -183,7 +185,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p>确认删除会话吗？此操作无法撤销。</p>
+                <p id="deleteConfirmMsg">确认删除会话吗？此操作无法撤销。</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
@@ -536,12 +538,14 @@
         }
         deleleteAction = "one";
         deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+        document.getElementById("deleteConfirmMsg").innerHTML = "确认删除会话吗？此操作无法撤销。";
         deleteModal.show();
     }
 
     async function clearAllSessions() {
         deleleteAction = "all";
         deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
+        document.getElementById("deleteConfirmMsg").innerHTML = "确认删除所有会话吗？此操作无法撤销。";
         deleteModal.show();
     }
 
@@ -579,6 +583,10 @@
         if (response.ok) {
             const res = await response.json();
             if (res.code === 200) {
+                const { affected_rows } = res.data || {};
+                if (affected_rows > 0) {
+                    showToast(`成功删除 ${affected_rows} 个会话`);
+                }
                 deleteModal && deleteModal.hide();
                 //删除成功后，刷新会话列表
                 await initSessionList();
