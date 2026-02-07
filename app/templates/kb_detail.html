@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+
+{% block title %}{{ kb.name }} - RAG Lite{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/">首页</a></li>
+                <li class="breadcrumb-item"><a href="/knowledge/list">知识库</a></li>
+                <li class="breadcrumb-item active">{{ kb.name }}</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-file-earmark"></i> 文档管理</h5>
+                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                    <i class="bi bi-upload"></i> 上传文档
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="docList">
+                    {% if documents %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>文档名称</th>
+                                    <th>状态</th>
+                                    <th>块数</th>
+                                    <th>文件大小</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for doc in documents %}
+                                <tr>
+                                    <td>
+                                        <i
+                                            class="bi bi-file-earmark-{{ 'pdf' if doc.file_type == 'pdf' else 'word' if doc.file_type == 'docx' else 'text' }}"></i>
+                                        {{ doc.name }}
+                                    </td>
+                                    <td>
+                                        {% set status_map = {
+                                        'completed': '已完成',
+                                        'processing': '处理中',
+                                        'failed': '失败',
+                                        'pending': '待处理'
+                                        } %}
+                                        <span
+                                            class="badge bg-{{ 'success' if doc.status == 'completed' else 'warning' if doc.status == 'processing' else 'danger' if doc.status == 'failed' else 'secondary' }}">
+                                            {{ status_map.get(doc.status, doc.status) }}
+                                        </span>
+                                    </td>
+                                    <td>{{ doc.chunk_count or 0 }}</td>
+                                    <td>{{ "%.2f"|format(doc.file_size / 1024) }} KB</td>
+                                    <td>
+                                        {% if doc.status == 'completed' %}
+                                        <a href="/documents/{{ doc.id }}/chunks" class="btn btn-sm btn-info me-1">
+                                            <i class="bi bi-list-ul"></i> 查看分块
+                                        </a>
+                                        {% endif %}
+                                        {% if doc.status == 'pending' %}
+                                        <button class="btn btn-sm btn-primary me-1"
+                                            onclick="processDoc('{{ doc.id }}', '{{ doc.name }}')">
+                                            <i class="bi bi-play-circle"></i> 处理
+                                        </button>
+                                        {% elif doc.status in ['completed', 'failed'] %}
+                                        <button class="btn btn-sm btn-warning me-1"
+                                            onclick="processDoc('{{ doc.id }}', '{{ doc.name }}')">
+                                            <i class="bi bi-arrow-clockwise"></i> 重新处理
+                                        </button>
+                                        {% elif doc.status == 'processing' %}
+                                        <button class="btn btn-sm btn-secondary me-1" disabled>
+                                            <i class="bi bi-hourglass-split"></i> 处理中
+                                        </button>
+                                        {% endif %}
+                                        <button class="btn btn-sm btn-danger"
+                                            onclick="deleteDoc('{{ doc.id }}', '{{ doc.name }}')">
+                                            <i class="bi bi-trash"></i> 删除
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- 分页控件 -->
+                    {% if pagination and pagination.total > pagination.page_size %}
+                    <nav aria-label="文档列表分页" class="mt-3">
+                        <ul class="pagination justify-content-center">
+                            {% set current_page = pagination.page %}
+                            {% set total_pages = (pagination.total + pagination.page_size - 1) // pagination.page_size
+                            %}
+
+                            <!-- 上一页 -->
+                            <li class="page-item {% if current_page <= 1 %}disabled{% endif %}">
+                                <a class="page-link"
+                                    href="?page={{ current_page - 1 }}&page_size={{ pagination.page_size }}" {% if
+                                    current_page <=1 %}tabindex="-1" aria-disabled="true" {% endif %}>
+                                    <i class="bi bi-chevron-left"></i> 上一页
+                                </a>
+                            </li>
+
+                            <!-- 页码 -->
+                            {% set start_page = [1, current_page - 2] | max %}
+                            {% set end_page = [total_pages, current_page + 2] | min %}
+
+                            {% if start_page > 1 %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page=1&page_size={{ pagination.page_size }}">1</a>
+                            </li>
+                            {% if start_page > 2 %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                            {% endif %}
+                            {% endif %}
+
+                            {% for page_num in range(start_page, end_page + 1) %}
+                            <li class="page-item {% if page_num == current_page %}active{% endif %}">
+                                <a class="page-link" href="?page={{ page_num }}&page_size={{ pagination.page_size }}">
+                                    {{ page_num }}
+                                </a>
+                            </li>
+                            {% endfor %}
+
+                            {% if end_page < total_pages %} {% if end_page < total_pages - 1 %} <li
+                                class="page-item disabled">
+                                <span class="page-link">...</span>
+                                </li>
+                                {% endif %}
+                                <li class="page-item">
+                                    <a class="page-link"
+                                        href="?page={{ total_pages }}&page_size={{ pagination.page_size }}">{{
+                                        total_pages }}</a>
+                                </li>
+                                {% endif %}
+
+                                <!-- 下一页 -->
+                                <li class="page-item {% if current_page >= total_pages %}disabled{% endif %}">
+                                    <a class="page-link"
+                                        href="?page={{ current_page + 1 }}&page_size={{ pagination.page_size }}" {% if
+                                        current_page>= total_pages %}tabindex="-1" aria-disabled="true"{% endif %}>
+                                        下一页 <i class="bi bi-chevron-right"></i>
+                                    </a>
+                                </li>
+                        </ul>
+                        <div class="text-center text-muted small mt-2">
+                            共 {{ pagination.total }} 个文档，第 {{ current_page }} / {{ total_pages }} 页
+                        </div>
+                    </nav>
+                    {% endif %}
+                    {% else %}
+                    <div class="text-center text-muted py-5">
+                        <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                        <p class="mt-2">还没有文档，点击上方按钮上传文档</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 上传文档模态框 -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">上传文档</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="uploadForm" onsubmit="uploadDocument(event)" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">选择文件</label>
+                        <input type="file" class="form-control" name="file" accept=".pdf,.docx,.txt,.md" required>
+                        <div class="form-text">支持 PDF、DOCX、TXT、MD 格式</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">文档名称（可选）</label>
+                        <input type="text" class="form-control" name="name" placeholder="留空使用文件名">
+                    </div>
+                    <div id="uploadProgress" class="progress d-none">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" + role="progressbar"
+                            style="width: 100%"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">上传</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    //先拿到知识库的id
+    const kbId = "{{kb.id}}"
+
+    async function uploadDocument(event) {
+        event.preventDefault()
+        const form = event.target; //获得表单对象
+        const formData = new FormData(form);
+        const processDiv = document.getElementById("uploadProgress");
+        const submitBtn = form.querySelector('button[type="submit"]');
+        processDiv.classList.remove('d-none');
+        submitBtn.disabled = true;
+        try {
+            //给对应的知识库上传文档，一个知识库可以上传多个文档
+            const res = await fetch(`/documents/${kbId}/upload`, {
+                method: "POST",
+                body: formData
+            });
+            if (res.ok) {
+                //上传成功后，得到上传的文档id
+                const result = await res.json();
+                const docId = result.id;
+                bootstrap.Modal.getInstance(document.getElementById("uploadModal")).hide();
+                form.reset();
+
+                setTimeout(() => window.location.reload(), 1000)
+
+            }
+        } catch (error) {
+            alert("上传失败=" + error.message)
+        }
+        finally {
+            processDiv.classList.add('d-none');
+            submitBtn.disabled = false;
+        }
+    }
+
+    //处理文档函数，开始调用langchain对上传的文档进行分割
+    async function processDoc(documentId, documentName) {
+        console.log("文档ID=", documentId, "文档名称=", documentName);
+        try {
+            const res = await fetch(`/documents/process`, {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json', // 告诉后端参数是 JSON 格式
+                    // 可选：如果需要 token 认证
+                    // 'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({
+                    documentId,
+                    documentName
+                })
+            });
+            if (res.ok) {
+                alert(`${documentName}已经提交处理，请稍后刷新页面`)
+                setTimeout(() => location.reload(), 1000)
+            }
+            else {
+                const result = await res.json();
+                alert(`${documentName}已经提交处理失败${result.message}`)
+            }
+
+        } catch (error) {
+
+            alert(`${documentName}已经提交处理失败,${error.message}`)
+
+        }
+    }
+
+    async function deleteDoc(documentId, documentName) {
+        console.log("文档ID=", documentId, "文档名称=", documentName);
+        try {
+            const res = await fetch(`/documents/${documentId}/delete`, {
+                method: "POST",
+            });
+            if (res.ok) {
+                alert(`${documentName}已经删除，请稍后刷新页面`)
+                setTimeout(() => location.reload(), 1000)
+            }
+            else {
+                const result = await res.json();
+                alert(`${documentName}已经删除失败${result.message}`)
+            }
+        } catch (error) {
+            alert(`${documentName}已经删除失败,${error.message}`)
+        } 
+    }  
+               
+
+
+</script>
+{% endblock %}

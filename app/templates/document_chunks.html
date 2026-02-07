@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}{{ document.name }} - 分块列表 - RAG Lite{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/">首页</a></li>
+                <li class="breadcrumb-item"><a href="/knowledge/list">知识库</a></li>
+                <li class="breadcrumb-item"><a href="/knowledge/detail/{{ kb.id }}">{{ kb.name }}</a></li>
+                <li class="breadcrumb-item active">{{ document.name }} - 分块列表</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-file-earmark-text"></i> {{ document.name }} - 分块列表
+                </h5>
+                <a href="/knowledge/detail/{{ kb.id }}" class="btn btn-sm btn-secondary">
+                    <i class="bi bi-arrow-left"></i> 返回文档列表
+                </a>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>文档名称：</strong>{{ document.name }}</p>
+                            <p class="mb-1"><strong>文档状态：</strong>
+                                {% set status_map = {
+                                'completed': '已完成',
+                                'processing': '处理中',
+                                'failed': '失败',
+                                'pending': '待处理'
+                                } %}
+                                <span
+                                    class="badge bg-{{ 'success' if document.status == 'completed' else 'warning' if document.status == 'processing' else 'danger' if document.status == 'failed' else 'secondary' }}">
+                                    {{ status_map.get(document.status, document.status) }}
+                                </span>
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p class="mb-1"><strong>分块数量：</strong>{{ chunks|length }}</p>
+                            <p class="mb-1"><strong>文件大小：</strong>{{ "%.2f"|format(document.file_size / 1024) }} KB</p>
+                        </div>
+                    </div>
+                </div>
+
+                {% if chunks %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th style="width: 80px;">序号</th>
+                                <th style="width: 200px;">分块ID</th>
+                                <th>内容</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for chunk in chunks %}
+                            <tr>
+                                <td>{{ chunk.chunk_index }}</td>
+                                <td>
+                                    <code class="text-muted" style="font-size: 0.85em;">{{ chunk.id }}</code>
+                                </td>
+                                <td>
+                                    <div class="chunk-content" style="max-height: 150px; overflow-y: auto;">
+                                        {{ chunk.content }}
+                                    </div>
+                                    <button class="btn btn-sm btn-link p-0 mt-1" data-chunk-id="{{ chunk.id }}"
+                                        data-chunk-content="{{ chunk.content|replace('"', '
+                                        &quot;')|replace("'", "&#39;" )|replace('\n', '&#10;' ) }}"
+                                        onclick="copyChunkContent(event)">
+                                        <i class="bi bi-clipboard"></i> 复制
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                    <p class="mt-2">该文档还没有分块数据</p>
+                    <p class="text-muted small">请确保文档已处理完成（状态为 completed）</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 定义一个函数用于复制分块内容
+    function copyChunkContent(event) {
+        // 获取被点击的按钮元素
+        const btn = event.target.closest('button');
+        // 获取分块ID（可用于后续拓展）
+        const chunkId = btn.getAttribute('data-chunk-id');
+        // 获取分块内容（含HTML实体编码）
+        let content = btn.getAttribute('data-chunk-content');
+
+        // 将HTML实体还原为原始字符（换行、单引号、双引号）
+        content = content.replace(/&#10;/g, '\n').replace(/&#39;/g, "'").replace(/&quot;/g, '"');
+
+        // 使用浏览器Clipboard API将内容写入剪贴板
+        navigator.clipboard.writeText(content).then(function () {
+            // 成功复制后：先保存按钮原始显示内容
+            const originalHTML = btn.innerHTML;
+            // 修改按钮显示为已复制样式
+            btn.innerHTML = '<i class="bi bi-check"></i> 已复制';
+            btn.classList.add('text-success');
+
+            // 2秒后恢复按钮为原始内容和样式
+            setTimeout(function () {
+                btn.innerHTML = originalHTML;
+                btn.classList.remove('text-success');
+            }, 2000);
+        }).catch(function (err) {
+            // 如果写入剪贴板失败，打印错误并弹窗提示
+            console.error('复制失败:', err);
+            alert('复制失败，请手动复制');
+        });
+    }
+</script>
+{% endblock %}

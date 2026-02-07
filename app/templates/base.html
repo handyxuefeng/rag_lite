@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        {% block title %}
+        RAG Lite - RAG 系统
+        {% endblock %}
+    </title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://static.docs-hub.com/bootstrapmin_1767018057480.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://static.docs-hub.com/bootstrapicons_1767018066482.css" rel="stylesheet">
+
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+
+        .navbar-brand {
+            font-weight: 600;
+        }
+
+        .card {
+            border: none;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .chat-message {
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 0.5rem;
+        }
+
+        .chat-question {
+            background-color: #e3f2fd;
+        }
+
+        .chat-answer {
+            background-color: #f5f5f5;
+        }
+
+        .source-item {
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            background-color: #fff;
+            border-left: 3px solid #0d6efd;
+            border-radius: 0.25rem;
+        }
+
+        .markdown-content {
+            line-height: 1.6;
+        }
+
+        .markdown-content h1,
+        .markdown-content h2,
+        .markdown-content h3,
+        .markdown-content h4,
+        .markdown-content h5,
+        .markdown-content h6 {
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .markdown-content h1 {
+            font-size: 2rem;
+        }
+
+        .markdown-content h2 {
+            font-size: 1.75rem;
+        }
+
+        .markdown-content h3 {
+            font-size: 1.5rem;
+        }
+
+        .markdown-content h4 {
+            font-size: 1.25rem;
+        }
+
+        .markdown-content p {
+            margin-bottom: 1rem;
+        }
+
+        .markdown-content ul,
+        .markdown-content ol {
+            margin-bottom: 1rem;
+            padding-left: 2rem;
+        }
+
+        .markdown-content code {
+            background-color: #f4f4f4;
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
+            font-size: 0.9em;
+        }
+
+        .markdown-content pre {
+            background-color: #f4f4f4;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin-bottom: 1rem;
+        }
+
+        .markdown-content pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+
+        .markdown-content blockquote {
+            border-left: 4px solid #0d6efd;
+            padding-left: 1rem;
+            margin-left: 0;
+            color: #6c757d;
+            margin-bottom: 1rem;
+        }
+
+        .markdown-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+
+        .markdown-content table th,
+        .markdown-content table td {
+            border: 1px solid #dee2e6;
+            padding: 0.5rem;
+        }
+
+        .markdown-content table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+
+        .markdown-content a {
+            color: #0d6efd;
+            text-decoration: none;
+        }
+
+        .markdown-content a:hover {
+            text-decoration: underline;
+        }
+
+        /* 打字机效果优化 */
+        .markdown-content {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+        }
+
+        /* 平滑滚动 */
+        #chatArea {
+            scroll-behavior: smooth;
+        }
+    </style>
+
+    {% block extra_css %}
+
+    {% endblock %}
+</head>
+
+<body>
+    <!-- 导航栏 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="bi bi-book"></i> RAG Lite
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'auth.home' %}active{% endif %}" href="/">
+                            <i class="bi bi-house"></i> 首页
+                        </a>
+                    </li>
+                    {% if current_user %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'knowledgebase.kb_list' or request.endpoint == 'knowledgebase.kb_detail' %}active{% endif %}"
+                            href="/knowledge/list">
+                            <i class="bi bi-database"></i> 知识库
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'chat.chat' %}active{% endif %}" href="/chat">
+                            <i class="bi bi-chat-dots"></i> 聊天
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'settings.settings' %}active{% endif %}"
+                            href="/rag/settings">
+                            <i class="bi bi-gear"></i> 设置
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+                <ul class="navbar-nav">
+                    {% if current_user %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle"></i> {{ current_user.username }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}"><i
+                                        class="bi bi-box-arrow-right"></i> 登出</a></li>
+                        </ul>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{url_for('auth.login')}}">
+                            <i class="bi bi-box-arrow-in-right"></i> 登录
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{url_for('auth.register')}}">
+                            <i class="bi bi-person-plus"></i> 注册
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <div class="container-fluid mt-4">
+        <!-- Flash 消息 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="mb-3">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show"
+                role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}
+        {% endblock %}
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://static.docs-hub.com/bootstrapbundlemin_1767018104304.js"></script>
+    <!-- Marked.js for Markdown rendering -->
+    <script src="https://static.docs-hub.com/markedmin_1767018117982.js"></script>
+    {% block extra_js %}
+    {% endblock %}
+</body>
+
+</html>

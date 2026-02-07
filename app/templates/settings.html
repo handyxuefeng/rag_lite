@@ -1,0 +1,595 @@
+{% extends "base.html" %}
+
+{% block title %}
+设置 - RAG Lite
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/">首页</a></li>
+                <li class="breadcrumb-item active">设置</li>
+            </ol>
+        </nav>
+
+        <h2><i class="bi bi-gear"></i> 系统设置</h2>
+        <p class="text-muted">配置模型、提示词和检索参数</p>
+
+        <form id="settingsForm" onsubmit="saveSettings(event)">
+            <!-- 标签页导航 -->
+            <ul class="nav nav-tabs mb-4" id="settingsTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="embedding-tab" data-bs-toggle="tab" data-bs-target="#embedding"
+                        type="button" role="tab">
+                        <i class="bi bi-diagram-3"></i> 向量嵌入模型
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="llm-tab" data-bs-toggle="tab" data-bs-target="#llm" type="button"
+                        role="tab">
+                        <i class="bi bi-robot"></i> 大语言模型
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="prompt-tab" data-bs-toggle="tab" data-bs-target="#prompt" type="button"
+                        role="tab">
+                        <i class="bi bi-chat-quote"></i> 提示词设置
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="retrieval-tab" data-bs-toggle="tab" data-bs-target="#retrieval"
+                        type="button" role="tab">
+                        <i class="bi bi-search"></i> 检索设置
+                    </button>
+                </li>
+            </ul>
+
+            <!-- 标签页内容 -->
+            <div class="tab-content" id="settingsTabContent">
+                <!-- 标签1: 向量嵌入模型 -->
+                <div class="tab-pane fade show active" id="embedding" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-diagram-3"></i> 向量嵌入模型（Embedding）</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">提供商 <span class="text-danger">*</span></label>
+                                <select class="form-select" id="embeddingProvider" name="embedding_provider"
+                                    onchange="updateEmbeddingForm()" required>
+                                    <option value="huggingface">HuggingFace</option>
+                                    <option value="openai">OpenAI</option>
+                                    <option value="ollama">Ollama</option>
+                                </select>
+                                <div class="form-text">选择向量嵌入模型提供商</div>
+                            </div>
+
+                            <div class="mb-3" id="embeddingModelNameGroup">
+                                <label class="form-label">模型名称</label>
+                                <select class="form-select" id="embeddingModelName" name="embedding_model_name">
+                                    <option value="">请选择模型</option>
+                                    <!-- 动态填充 -->
+                                </select>
+                                <div class="form-text">选择模型名称或路径</div>
+                            </div>
+
+                            <div class="mb-3" id="embeddingApiKeyGroup" style="display: block;">
+                                <label class="form-label">API Key</label>
+                                <input type="password" class="form-control" id="embeddingApiKey"
+                                    name="embedding_api_key" placeholder="输入 API Key">
+                                <div class="form-text">某些提供商需要 API Key</div>
+                            </div>
+
+                            <div class="mb-3" id="embeddingBaseUrlGroup" style="display:block;">
+                                <label class="form-label">Base URL</label>
+                                <input type="text" class="form-control" id="embeddingBaseUrl" name="embedding_base_url"
+                                    placeholder="例如: http://localhost:11434">
+                                <div class="form-text">API Base URL（Ollama 需要）</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 标签2: 大语言模型 -->
+                <div class="tab-pane fade" id="llm" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-robot"></i> 大语言模型（LLM）</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">提供商 <span class="text-danger">*</span></label>
+                                <select class="form-select" id="llmProvider" name="llm_provider"
+                                    onchange="updateLLMForm()" required>
+                                    <option value="deepseek">DeepSeek</option>
+                                    <option value="openai">OpenAI</option>
+                                    <option value="ollama">Ollama</option>
+                                </select>
+                                <div class="form-text">选择大语言模型提供商</div>
+                            </div>
+
+                            <div class="mb-3" id="llmModelNameGroup">
+                                <label class="form-label">模型名称</label>
+                                <select class="form-select" id="llmModelName" name="llm_model_name">
+                                    <option value="">请选择模型</option>
+                                    <!-- 动态填充 -->
+                                </select>
+                                <div class="form-text">选择模型名称</div>
+                            </div>
+
+                            <div class="mb-3" id="llmApiKeyGroup">
+                                <label class="form-label">API Key</label>
+                                <input type="password" class="form-control" id="llmApiKey" name="llm_api_key"
+                                    placeholder="输入 API Key">
+                                <div class="form-text">某些提供商需要 API Key</div>
+                            </div>
+
+                            <div class="mb-3" id="llmBaseUrlGroup">
+                                <label class="form-label">Base URL</label>
+                                <input type="text" class="form-control" id="llmBaseUrl" name="llm_base_url"
+                                    placeholder="例如: https://api.deepseek.com">
+                                <div class="form-text">API Base URL</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">温度 (Temperature)</label>
+                                <input type="number" class="form-control" id="llmTemperature" name="llm_temperature"
+                                    value="0.7" step="0.1" min="0" max="2" placeholder="0.7">
+                                <div class="form-text">控制输出的随机性，值越大越随机（0-2）</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 标签3: 提示词设置 -->
+                <div class="tab-pane fade" id="prompt" role="tabpanel">
+                    <div class="card">
+                        <div class="card-body">
+                            <!-- 子标签页导航 -->
+                            <ul class="nav nav-tabs mb-4" id="promptSubTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="chat-prompt-sub-tab" data-bs-toggle="tab"
+                                        data-bs-target="#chat-prompt-sub" type="button" role="tab">
+                                        <i class="bi bi-chat"></i> 普通聊天提示词
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="rag-prompt-sub-tab" data-bs-toggle="tab"
+                                        data-bs-target="#rag-prompt-sub" type="button" role="tab">
+                                        <i class="bi bi-book"></i> 知识库聊天提示词
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <!-- 子标签页内容 -->
+                            <div class="tab-content" id="promptSubTabContent">
+                                <!-- 子标签1: 普通聊天提示词 -->
+                                <div class="tab-pane fade show active" id="chat-prompt-sub" role="tabpanel">
+                                    <div class="mb-4">
+                                        <label class="form-label">普通聊天系统提示词</label>
+                                        <textarea class="form-control" id="chatSystemPrompt" name="chat_system_prompt"
+                                            rows="10" placeholder="输入普通聊天提示词..."></textarea>
+                                        <div class="form-text mt-2">
+                                            <p class="mb-0">普通聊天提示词用于指导AI助手在普通聊天（未选择知识库）时的回答风格和行为。</p>
+                                            <p class="mb-0 mt-2"><strong>注意：</strong>这是系统消息的内容，不能使用变量。</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 子标签2: 知识库聊天提示词 -->
+                                <div class="tab-pane fade" id="rag-prompt-sub" role="tabpanel">
+                                    <div class="mb-4">
+                                        <label class="form-label">知识库聊天系统提示词</label>
+                                        <textarea class="form-control" id="ragSystemPrompt" name="rag_system_prompt"
+                                            rows="6" placeholder="输入知识库聊天系统提示词..."></textarea>
+                                        <div class="form-text mt-2">
+                                            <p class="mb-0">知识库聊天系统提示词用于在会话开始时设置AI助手的角色和行为。</p>
+                                            <p class="mb-0 mt-2"><strong>注意：</strong>这是系统消息的内容，不能使用变量（如 {context} 或
+                                                {question}）。</p>
+                                        </div>
+                                    </div>
+
+                                    <hr class="my-4">
+
+                                    <div class="mb-3">
+                                        <label class="form-label">知识库聊天查询提示词</label>
+                                        <textarea class="form-control" id="ragQueryPrompt" name="rag_query_prompt"
+                                            rows="10"
+                                            placeholder="例如：文档内容：&#10;{context}&#10;&#10;问题：{question}&#10;&#10;请基于文档内容回答问题。如果文档中没有相关信息，请明确说明。"></textarea>
+                                        <div class="form-text mt-2">
+                                            <p class="mb-1">知识库聊天查询提示词用于每次提问时构建提示，指导AI助手如何基于文档内容回答问题。</p>
+                                            <p class="mb-0"><strong>必须使用以下变量：</strong></p>
+                                            <ul class="mb-0">
+                                                <li><code>{context}</code> - 检索到的文档内容（必需）</li>
+                                                <li><code>{question}</code> - 用户的问题（必需）</li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 标签3: 检索设置 -->
+                <div class="tab-pane fade" id="retrieval" role="tabpanel">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-search"></i> 检索设置</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">检索模式 <span class="text-danger">*</span></label>
+                                <select class="form-select" id="retrievalMode" name="retrieval_mode" required>
+                                    <option value="vector">向量检索</option>
+                                    <option value="keyword">全文检索</option>
+                                    <option value="hybrid">混合检索</option>
+                                </select>
+                                <div class="form-text">选择文档检索方式</div>
+                            </div>
+
+                            <div class="mb-3" id="vectorThresholdGroup">
+                                <label class="form-label">向量检索阈值</label>
+                                <input type="number" class="form-control" id="vectorThreshold" name="vector_threshold"
+                                    value="0.2" step="0.1" min="0" max="1" placeholder="0.2">
+                                <div class="form-text">向量相似度阈值，低于此值的文档将被过滤（0-1）</div>
+                            </div>
+
+                            <div class="mb-3" id="keywordThresholdGroup" style="display: block;">
+                                <label class="form-label">全文检索阈值</label>
+                                <input type="number" class="form-control" id="keywordThreshold" name="keyword_threshold"
+                                    value="0.5" step="0.1" min="0" max="1" placeholder="0.5">
+                                <div class="form-text">关键词匹配阈值（0-1）</div>
+                            </div>
+
+                            <div class="mb-3" id="vectorWeightGroup" style="display: block;">
+                                <label class="form-label">向量检索权重</label>
+                                <input type="number" class="form-control" id="vectorWeight" name="vector_weight"
+                                    value="0.7" step="0.1" min="0" max="1" placeholder="0.7">
+                                <div class="form-text">混合检索时向量检索的权重（0-1），关键词检索权重 = 1 - 向量权重</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">TopK 结果数量</label>
+                                <input type="number" class="form-control" id="topK" name="top_k" value="5" min="1"
+                                    max="50" placeholder="5">
+                                <div class="form-text">返回的文档数量（1-50）</div>
+                            </div>
+
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i> <strong>说明：</strong>
+                                <ul class="mb-0 mt-2">
+                                    <li><strong>向量检索：</strong>基于语义相似度检索，适合理解问题意图</li>
+                                    <li><strong>全文检索：</strong>基于关键词匹配检索，适合精确匹配</li>
+                                    <li><strong>混合检索：</strong>结合向量和关键词检索，综合两者的优势</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 mt-4">
+                <button type="button" class="btn btn-secondary" onclick="resetSettings()">重置</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-save"></i> 保存设置
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Toast提示组件 -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="settingsToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong class="me-auto" id="toastTitle">提示</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="toastBody">
+            操作提示信息
+        </div>
+    </div>
+</div>
+
+<script>
+
+
+    let model_settings = {};
+    let user_model_settings = {};
+
+    // 显示Toast提示
+    function showToast(title, message, isError = false) {
+        const toastElement = document.getElementById('settingsToast');
+        const toastTitleElement = document.getElementById('toastTitle');
+        const toastBodyElement = document.getElementById('toastBody');
+        const toastHeader = toastElement.querySelector('.toast-header');
+        const toastIcon = toastElement.querySelector('.toast-header i');
+        
+        // 设置标题和内容
+        toastTitleElement.textContent = title;
+        toastBodyElement.textContent = message;
+        
+        // 根据类型设置不同的样式
+        if (isError) {
+            // 错误提示样式
+            toastHeader.classList.remove('bg-success', 'text-white');
+            toastHeader.classList.add('bg-danger', 'text-white');
+            toastIcon.className = 'bi bi-exclamation-circle me-2 text-white';
+        } else {
+            // 成功提示样式
+            toastHeader.classList.remove('bg-danger', 'text-white');
+            toastHeader.classList.add('bg-success', 'text-white');
+            toastIcon.className = 'bi bi-check-circle me-2 text-white';
+        }
+        
+        // 显示Toast
+        const toast = new bootstrap.Toast(toastElement);
+        toast.show();
+    }
+
+    async function updateLLMForm() {
+        const provider = document.getElementById('llmProvider').value;
+        const modelSelect = document.getElementById('llmModelName');
+        const apiKeyGroup = document.getElementById('llmApiKeyGroup');
+        const baseUrlGroup = document.getElementById('llmBaseUrlGroup');
+
+        //得到大模型列表
+        const llmModels = model_settings['llm_models'];
+
+        // 清空现有选项
+        modelSelect.innerHTML = '<option value="">请选择模型</option>';
+
+        const match_provider_llm = llmModels[provider];
+        const { requires_api_key, requires_base_url, models = [] } = match_provider_llm || {};
+
+        console.log('得到大模型=', match_provider_llm)
+        //开始填充大模型select
+        models.forEach(model => {
+            const option = document.createElement('option');
+            const { name, description } = model;
+            option.value = name;
+            option.textContent = `${name}-${description}`
+            modelSelect.appendChild(option);
+        });
+
+        //apiKeyGroup.style.display = requires_api_key ? 'block' : 'none';
+        //baseUrlGroup.style.display = requires_base_url ? 'block' : 'none';
+
+    }
+
+    async function updateEmbeddingForm() {
+        const provider = document.getElementById('embeddingProvider').value;
+        const modelSelect = document.getElementById('embeddingModelName');
+        const apiKeyGroup = document.getElementById('embeddingApiKeyGroup');
+        const baseUrlGroup = document.getElementById('embeddingBaseUrlGroup');
+
+        //得到嵌入模型列表
+        const embeddingModels = model_settings['embedding_models'];
+
+        // 清空现有选项
+        modelSelect.innerHTML = '<option value="">请选择模型</option>';
+
+        const match_provider_embedding = embeddingModels[provider];
+        const { requires_api_key, requires_base_url, models = [] } = match_provider_embedding || {};
+
+        //开始填充嵌入模型select
+        models.forEach(model => {
+            const option = document.createElement('option');
+            const { name, path, dimension, description } = model;
+            option.value = name || path;
+            option.textContent = (name || path) + `${dimension ? ' (' + dimension + '维)' : ''}` + (description ? ' - ' + description : '');
+            modelSelect.appendChild(option);
+        });
+
+        //apiKeyGroup.style.display = requires_api_key ? 'block' : 'none';
+        //baseUrlGroup.style.display = requires_base_url ? 'block' : 'none';
+
+    }
+
+    //用户点击tab=大语言模型时，设置用户的信息
+    async function setUserllmSettging() {
+        const { llm_provider, llm_model_name, llm_api_key, llm_base_url, llm_temperature } = user_model_settings || {};
+        document.getElementById('llmProvider').value = llm_provider;
+        document.getElementById('llmModelName').value = llm_model_name;
+        document.getElementById('llmApiKey').value = llm_api_key;
+        document.getElementById('llmBaseUrl').value = llm_base_url;
+        document.getElementById('llmTemperature').value = llm_temperature;
+    }
+    async function setPromptSetting() {
+        const { chat_system_prompt, rag_system_prompt, rag_query_prompt } = user_model_settings || {};
+        document.getElementById("chatSystemPrompt").value = chat_system_prompt;
+        document.getElementById("ragSystemPrompt").value = rag_system_prompt;
+        document.getElementById("ragQueryPrompt").value = rag_query_prompt;
+    }
+    async function syncUserRetrivalSetting() {
+        const { retrieval_mode, vector_threshold, keyword_threshold, vector_weight, top_k } = user_model_settings || {};
+        document.getElementById("retrievalMode").value = retrieval_mode;
+        document.getElementById("vectorThreshold").value = vector_threshold;
+        document.getElementById("keywordThreshold").value = keyword_threshold;
+        document.getElementById("vectorWeight").value = vector_weight;
+        document.getElementById("topK").value = top_k;
+
+    }
+
+
+    //同步用户嵌入模型设置信息到页面
+    async function syncUserSetting() {
+        const { embedding_provider, embedding_model_name, embedding_api_key, embedding_base_url, llm_model_name, llm_api_key, llm_base_url } = user_model_settings || {};
+        document.getElementById('embeddingProvider').value = embedding_provider;
+        document.getElementById('embeddingModelName').value = embedding_model_name;
+        document.getElementById('embeddingApiKey').value = embedding_api_key;
+        document.getElementById('embeddingBaseUrl').value = embedding_base_url;
+    }
+
+    //获取用户的嵌入模型，大模型设置信息
+    async function getUserSettinginfo() {
+        const res = await fetch("/rag/userSettings");
+        if (res.ok) {
+            const result = await res.json()
+            user_model_settings = result.data;
+            console.log('得到用户自己对嵌入模型，大模型的相关配置信息===', user_model_settings)
+            await syncUserSetting()
+            await setUserllmSettging()
+            await setPromptSetting()
+            await syncUserRetrivalSetting()
+        }
+
+    }
+
+    async function initializeSettingsForm(params) {
+        const res = await fetch('/rag/models');
+        if (res.ok) {
+            result = await res.json();
+            if (result.code == 200) {
+                model_settings = result.data;
+                await updateEmbeddingForm();
+                await updateLLMForm();
+                await getUserSettinginfo();
+
+            } else {
+                showToast('获取模型列表失败', result.message, true);
+            }
+
+            console.log("Fetched models:", result);
+        }
+    }
+
+
+    // 处理检索模式变化
+    function handleRetrievalModeChange() {
+        const retrievalMode = document.getElementById('retrievalMode').value;
+        const vectorThresholdGroup = document.getElementById('vectorThresholdGroup');
+        const vectorThresholdInput = document.getElementById('vectorThreshold');
+        const keywordThresholdGroup = document.getElementById('keywordThresholdGroup');
+        const keywordThresholdInput = document.getElementById('keywordThreshold');
+        const vectorWeightGroup = document.getElementById('vectorWeightGroup');
+        const vectorWeightInput = document.getElementById('vectorWeight');
+
+        // 根据检索模式显示或隐藏相关字段
+        if (retrievalMode === 'vector') {
+            // 向量检索：显示向量阈值，隐藏关键词阈值和向量权重
+            vectorThresholdGroup.style.display = 'block';
+            vectorThresholdInput.disabled = false;
+            keywordThresholdGroup.style.display = 'none';
+            keywordThresholdInput.disabled = true;
+            vectorWeightGroup.style.display = 'none';
+            vectorWeightInput.disabled = true;
+        } else if (retrievalMode === 'keyword') {
+            // 全文检索：显示关键词阈值，隐藏向量阈值和向量权重
+            vectorThresholdGroup.style.display = 'none';
+            vectorThresholdInput.disabled = true;
+            keywordThresholdGroup.style.display = 'block';
+            keywordThresholdInput.disabled = false;
+            vectorWeightGroup.style.display = 'none';
+            vectorWeightInput.disabled = true;
+        } else if (retrievalMode === 'hybrid') {
+            // 混合检索：显示所有字段
+            vectorThresholdGroup.style.display = 'block';
+            vectorThresholdInput.disabled = false;
+            keywordThresholdGroup.style.display = 'block';
+            keywordThresholdInput.disabled = false;
+            vectorWeightGroup.style.display = 'block';
+            vectorWeightInput.disabled = false;
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", async function () {
+        try {
+            // 初始化表单
+            await initializeSettingsForm();
+
+            // 添加检索模式变化监听器
+            const retrievalModeSelect = document.getElementById('retrievalMode');
+            if (retrievalModeSelect) {
+                retrievalModeSelect.addEventListener('change', handleRetrievalModeChange);
+                // 初始加载时触发一次
+                handleRetrievalModeChange();
+            }
+        } catch (error) {
+            console.error("初始化设置表单时出错：", error);
+            showToast('加载设置失败', '加载设置时出错，请稍后重试。', true);
+        }
+    });
+
+    // 保存设置（表单提交处理函数，异步提交到后端）
+    async function saveSettings(event) {
+
+        // 阻止表单的默认提交行为
+        event.preventDefault();
+        // 获取表单dom对象
+        const form = event.target;
+        // 构造FormData对象用于取值
+        const formData = new FormData(form);
+        // 构造要提交的数据对象
+        const data = {
+            embedding_provider: formData.get('embedding_provider'),
+            embedding_model_name: formData.get('embedding_model_name') || null,
+            embedding_api_key: formData.get('embedding_api_key') || null,
+            embedding_base_url: formData.get('embedding_base_url') || null,
+
+            llm_provider: document.getElementById('llmProvider').value,
+            llm_model_name: document.getElementById('llmModelName').value,
+            llm_api_key: document.getElementById('llmApiKey').value,
+            llm_base_url: document.getElementById('llmBaseUrl').value,
+            llm_temperature: document.getElementById('llmTemperature').value,
+
+            //提示词
+            chat_system_prompt: document.getElementById('chatSystemPrompt').value,
+            rag_system_prompt: document.getElementById('ragSystemPrompt').value,
+            rag_query_prompt: document.getElementById('ragQueryPrompt').value,
+
+            //检索方式
+            retrieval_mode: document.getElementById('retrievalMode').value,
+            vector_threshold: document.getElementById('vectorThreshold').value,
+            keyword_threshold: document.getElementById('keywordThreshold').value,
+            vector_weight: document.getElementById('vectorWeight').value,
+            top_k:document.getElementById("topK").value
+
+        };
+        try {
+            // 发送PUT请求到设置API，提交JSON数据
+            const response = await fetch('/rag/saveSettings', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            // 解析返回结果
+            const result = await response.json();
+            // 如果提交成功
+            if (response.ok) {
+                showToast('保存成功', '设置保存成功！', false);
+                // 刷新页面
+                setTimeout(() => {
+                    location.reload();
+                }, 1500);
+            } else {
+                // 否则弹窗提示失败原因
+                showToast('保存失败', result.message, true);
+            }
+        } catch (error) {
+            // 捕获异常并弹窗提示
+            showToast('保存失败', error.message, true);
+        }
+    }
+
+    //点击重置按钮，重新设置用户的初始化设置
+    async function resetSettings() {
+        if (confirm('确定要重置为默认设置吗？')) {
+            await syncUserSetting()
+            await setUserllmSettging()
+            await setPromptSetting()
+            await syncUserRetrivalSetting()
+        }
+    }
+
+
+
+</script>
+{% endblock %}

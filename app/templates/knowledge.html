@@ -1,0 +1,624 @@
+{% extends "base.html" %}
+
+{% block title %}
+知识库管理 - RAG Lite
+{% endblock %}
+
+{% block content %}
+<style>
+    @media (min-width: 992px) {
+        #kbList>div {
+            flex: 0 0 20%;
+            max-width: 20%;
+        }
+    }
+</style>
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb" class="mb-3">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/">首页</a></li>
+                <li class="breadcrumb-item active">知识库管理</li>
+            </ol>
+        </nav>
+
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2><i class="bi bi-collection"></i> 知识库管理</h2>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createKbModal">
+                <i class="bi bi-plus-circle"></i> 创建知识库
+            </button>
+        </div>
+        <!-- 搜索和排序工具栏 -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form method="GET" action="/knowledge/list" id="searchForm" class="row g-3 align-items-end">
+                    <div class="col-md-6">
+                        <label for="searchInput" class="form-label">搜索</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" class="form-control" id="searchInput" name="search" +
+                                placeholder="搜索知识库名称或描述..." value="{{ search }}">
+                            {% if search %}
+                            <button type="button" class="btn btn-outline-secondary" onclick="clearSearch()">
+                                <i class="bi bi-x"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="sortBySelect" class="form-label">排序字段</label>
+                        <select class="form-select" id="sortBySelect" name="sort_by" onchange="updateSearch()">
+                            <option value="created_at" {% if sort_by=='created_at' %}selected{% endif %}>创建时间</option>
+                            <option value="name" {% if sort_by=='name' %}selected{% endif %}>名称</option>
+                            <option value="updated_at" {% if sort_by=='updated_at' %}selected{% endif %}>更新时间</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="sortOrderSelect" class="form-label">排序方向</label>
+                        <select class="form-select" id="sortOrderSelect" name="sort_order" onchange="updateSearch()">
+                            <option value="desc" {% if sort_order=='desc' %}selected{% endif %}>降序</option>
+                            <option value="asc" {% if sort_order=='asc' %}selected{% endif %}>升序</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-search"></i> 搜索
+                        </button>
+                    </div>
+                    <input type="hidden" name="page" value="1">
+                    <input type="hidden" name="page_size" value="{{ pagination.page_size if pagination else 10 }}">
+                </form>
+            </div>
+        </div>
+        <!-- 知识库列表 -->
+        <div class="row" id="kbList">
+            {% if knowledge_list %}
+            {% for kb in knowledge_list %}
+            <div class="col-12 col-sm-6 col-md-4 col-lg mb-4">
+                <div class="card h-100">
+                    {% if kb.cover_image %}
+                    <img src="/knowledge/kb/{{ kb.id }}/cover" class="card-img-top" alt="{{ kb.name|e }}"
+                        style="height: 150px; object-fit: scale-down;">
+                    {% else %}
+                    <div class="card-img-top bg-light d-flex align-items-center justify-content-center"
+                        style="height: 150px;">
+                        <i class="bi bi-folder" style="font-size: 3rem; color: #6c757d;"></i>
+                    </div>
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="bi bi-folder"></i> {{ kb.name }}
+                        </h5>
+                        <p class="card-text text-muted small">{{ kb.description or '无描述' }}</p>
+                    </div>
+                    <div class="card-footer bg-transparent">
+                        <a href="/knowledge/detail/{{ kb.id }}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-arrow-right"></i> 进入
+                        </a>
+                        <button class="btn btn-sm btn-warning" data-kb-id="{{ kb.id }}" data-kb-name="{{ kb.name }}"
+                            data-kb-description="{{ kb.description or '' }}" data-kb-chunk-size="{{ kb.chunk_size }}"
+                            data-kb-chunk-overlap="{{ kb.chunk_overlap }}"
+                            data-kb-cover-image="{{ kb.cover_image or '' }}" onclick="editKbFromButton(this)">
+                            <i class="bi bi-pencil"></i> 编辑
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteKb('{{ kb.id }}', '{{ kb.name }}')">
+                            <i class="bi bi-trash"></i> 删除
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> 还没有知识库，点击上方按钮创建一个吧！
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- 分页控件 -->
+        {% if pagination and pagination.total > pagination.page_size %}
+        <nav aria-label="知识库列表分页" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% set current_page = pagination.page %}
+                {% set total_pages = (pagination.total + pagination.page_size - 1) // pagination.page_size %}
+
+                <!-- 上一页 -->
+                <li class="page-item {% if current_page <= 1 %}disabled{% endif %}">
+                    <a class="page-link"
+                        href="?page={{ current_page - 1 }}&page_size={{ pagination.page_size }}{% if search %}&search={{ search|urlencode }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}"
+                        {% if current_page <=1 %}tabindex="-1" aria-disabled="true" {% endif %}>
+                        <i class="bi bi-chevron-left"></i> 上一页
+                    </a>
+                </li>
+
+                <!-- 页码 -->
+                {% set start_page = [1, current_page - 2] | max %}
+                {% set end_page = [total_pages, current_page + 2] | min %}
+
+                {% if start_page > 1 %}
+                <li class="page-item">
+                    <a class="page-link"
+                        href="?page=1&page_size={{ pagination.page_size }}{% if search %}&search={{ search|urlencode }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}">1</a>
+                </li>
+                {% if start_page > 2 %}
+                <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                </li>
+                {% endif %}
+                {% endif %}
+
+                {% for page_num in range(start_page, end_page + 1) %}
+                <li class="page-item {% if page_num == current_page %}active{% endif %}">
+                    <a class="page-link"
+                        href="?page={{ page_num }}&page_size={{ pagination.page_size }}{% if search %}&search={{ search|urlencode }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}">
+                        {{ page_num }}
+                    </a>
+                </li>
+                {% endfor %}
+
+                {% if end_page < total_pages %} {% if end_page < total_pages - 1 %} <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+                    <li class="page-item">
+                        <a class="page-link"
+                            href="?page={{ total_pages }}&page_size={{ pagination.page_size }}{% if search %}&search={{ search|urlencode }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}">{{
+                            total_pages }}</a>
+                    </li>
+                    {% endif %}
+
+                    <!-- 下一页 -->
+                    <li class="page-item {% if current_page >= total_pages %}disabled{% endif %}">
+                        <a class="page-link"
+                            href="?page={{ current_page + 1 }}&page_size={{ pagination.page_size }}{% if search %}&search={{ search|urlencode }}{% endif %}&sort_by={{ sort_by }}&sort_order={{ sort_order }}"
+                            {% if current_page>= total_pages %}tabindex="-1" aria-disabled="true"{% endif %}>
+                            下一页 <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+            </ul>
+            <div class="text-center text-muted small mt-2">
+                共 {{ pagination.total }} 个知识库{% if search %}（搜索: "{{ search }}"）{% endif %}，第 {{ current_page }} / {{
+                total_pages }} 页
+            </div>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+<!-- 创建知识库模态框 -->
+<div class="modal fade" id="createKbModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">创建知识库</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="createKbForm" onsubmit="createKb(event)" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">描述</label>
+                        <textarea class="form-control" name="description" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">封面图片（可选）</label>
+                        <input type="file" class="form-control" name="cover_image"
+                            accept="image/jpeg,image/png,image/gif,image/webp" id="coverImageInput">
+                        <div class="form-text">支持 JPG、PNG、GIF、WEBP 格式，最大 5MB</div>
+                        <div id="coverImagePreview" class="mt-2" style="display: none;">
+                            <img id="coverPreviewImg" src="" alt="封面预览" class="img-thumbnail"
+                                style="max-width: 200px; max-height: 200px;">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">分块大小</label>
+                            <input type="number" class="form-control" name="chunk_size" value="512" min="100"
+                                max="2000">
+                            <div class="form-text">每个文本块的最大字符数，建议 512-1024</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">分块重叠</label>
+                            <input type="number" class="form-control" name="chunk_overlap" value="50" min="0" max="200">
+                            <div class="form-text">相邻块之间的重叠字符数，建议 50-100</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">创建</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 创建知识库失败模态框 -->
+<div class="modal fade" id="createKbErrorModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">创建失败</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="createKbErrorMessage">知识库创建失败，请稍后重试！</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">确定</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast提示组件 -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="kbToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong class="me-auto" id="toastTitle">提示</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="toastBody">
+            操作提示信息
+        </div>
+    </div>
+</div>
+
+<!-- 删除知识库确认模态框 -->
+<div class="modal fade" id="deleteKbModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">确认删除</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="deleteKbMessage">确定删除知识库 <span id="deleteKbName"></span> 吗？</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn" data-kb-id="" data-kb-name=""
+                    onclick="confirmDelete()">删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- 编辑知识库模态框 -->
+<div class="modal fade" id="editKbModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">编辑知识库</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editKbForm" onsubmit="updateKb(event)" enctype="multipart/form-data">
+                <input type="hidden" name="kb_id" id="editKbId">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">名称 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="name" id="editKbName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">描述</label>
+                        <textarea class="form-control" name="description" id="editKbDescription" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">封面图片</label>
+                        <div id="editCoverPreview" class="mb-2">
+                            <img id="editCoverPreviewImg" src="" alt="当前封面" class="img-thumbnail"
+                                style="max-width: 200px; max-height: 200px; display: none;">
+                            <div id="editCoverNoImage" class="text-muted small" style="display: none;">暂无封面</div>
+                        </div>
+                        <input type="file" class="form-control" name="cover_image"
+                            accept="image/jpeg,image/png,image/gif,image/webp" id="editCoverImageInput">
+                        <div class="form-text">支持 JPG、PNG、GIF、WEBP 格式，最大 5MB。留空则不修改封面。</div>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" name="delete_cover" id="editDeleteCover"
+                                value="true">
+                            <label class="form-check-label" for="editDeleteCover">
+                                删除封面图片
+                            </label>
+                        </div>
+                        <div id="editCoverNewPreview" class="mt-2" style="display: none;">
+                            <img id="editCoverNewPreviewImg" src="" alt="新封面预览" class="img-thumbnail"
+                                style="max-width: 200px; max-height: 200px;">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">分块大小</label>
+                            <input type="number" class="form-control" name="chunk_size" id="editKbChunkSize" value="512"
+                                min="100" max="2000">
+                            <div class="form-text">每个文本块的最大字符数，建议 512-1024</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">分块重叠</label>
+                            <input type="number" class="form-control" name="chunk_overlap" id="editKbChunkOverlap"
+                                value="50" min="0" max="200">
+                            <div class="form-text">相邻块之间的重叠字符数，建议 50-100</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+
+    const dom = document.getElementById;
+
+
+    // 显示创建知识库失败的模态框
+    function showCreateKbErrorModal(errorMessage) {
+        const myModal = new bootstrap.Modal(document.getElementById('createKbErrorModal'));
+        const errorMessageElement = document.getElementById('createKbErrorMessage');
+        errorMessageElement.textContent = '知识库创建失败: ' + errorMessage;
+        myModal.show();
+    }
+
+    // 显示Toast提示
+    function showToast(title, message, isError = false) {
+        const toastElement = document.getElementById('kbToast');
+        const toastTitleElement = document.getElementById('toastTitle');
+        const toastBodyElement = document.getElementById('toastBody');
+        const toastHeader = toastElement.querySelector('.toast-header');
+        const toastIcon = toastElement.querySelector('.toast-header i');
+
+        // 设置标题和内容
+        toastTitleElement.textContent = title;
+        toastBodyElement.textContent = message;
+
+        // 根据类型设置不同的样式
+        if (isError) {
+            // 错误提示样式
+            toastHeader.classList.remove('bg-success', 'text-white');
+            toastHeader.classList.add('bg-danger', 'text-white');
+            toastIcon.className = 'bi bi-exclamation-circle me-2 text-white';
+        } else {
+            // 成功提示样式
+            toastHeader.classList.remove('bg-danger', 'text-white');
+            toastHeader.classList.add('bg-success', 'text-white');
+            toastIcon.className = 'bi bi-check-circle me-2 text-white';
+        }
+
+        // 显示Toast
+        const toast = new bootstrap.Toast(toastElement);
+        toast.show();
+    }
+
+    //创建知识库
+    async function createKb(evt) {
+        evt.preventDefault();//阻止表单提交的默认行为
+        const form = evt.target; //获取事件源，因为是表单提交的，所以事件源是form
+        const formData = new FormData(form)
+        try {
+            const res = await fetch("/knowledge/create", {
+                method: "POST",
+                body: formData   // 使用 FormData，不要设置 Content-Type，让浏览器自动设置
+            })
+            if (res.ok) {
+                location.reload()
+            }
+            else {
+                const error = await res.json()
+                showCreateKbErrorModal(error.message || '未知错误');
+            }
+
+        } catch (error) {
+            showCreateKbErrorModal(error.message);
+        }
+
+    }
+
+    //删除知识库的方法
+    async function deleteKb(id, name) {
+        const deleteKbModal = new bootstrap.Modal(document.getElementById('deleteKbModal'));
+        document.getElementById('deleteKbName').textContent = name;
+
+        // 将kb.id和kb.name保存到确认删除按钮的data属性中
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+        confirmDeleteBtn.setAttribute('data-kb-id', id);
+        confirmDeleteBtn.setAttribute('data-kb-name', name);
+
+        deleteKbModal.show();
+    }
+
+    async function confirmDelete() {
+        // 从确认删除按钮的data属性中获取kb.id和kb.name
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+        const id = confirmDeleteBtn.getAttribute('data-kb-id');
+        const name = confirmDeleteBtn.getAttribute('data-kb-name');
+
+        const res = await fetch(`/knowledge/delete/${id}`, {
+            method: 'DELETE',
+        });
+        if (res.ok) {
+            // 使用Toast显示成功消息
+            showToast('删除成功', `知识库 "${name}" 已成功删除`, false);
+            // 延迟刷新页面，让用户看到提示
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        }
+        else {
+            const error = await res.json()
+            // 使用Toast显示错误消息
+            showToast('删除失败', error.message || '删除失败', true);
+        }
+    }
+
+
+    //编辑知识库操作
+    async function editKbFromButton(btnTarget) {
+        const kb_id = btnTarget.getAttribute("data-kb-id")
+        const kb_name = btnTarget.getAttribute("data-kb-name")
+        const kb_description = btnTarget.getAttribute("data-kb-description")
+        const kb_chunk_size = btnTarget.getAttribute("data-kb-chunk-size")
+        const kb_chunk_overlap = btnTarget.getAttribute("data-kb-chunk-overlap")
+        const kb_cover_image = btnTarget.getAttribute("data-kb-cover-image")
+
+        document.getElementById("editKbId").value = kb_id;
+        document.getElementById("editKbName").value = kb_name;
+        document.getElementById("editKbDescription").value = kb_description;
+        document.getElementById("editKbChunkSize").value = kb_chunk_size;
+        document.getElementById("editKbChunkOverlap").value = kb_chunk_overlap;
+        document.getElementById("editDeleteCover").checked = false;
+        document.getElementById("editCoverImageInput").value = "";
+        // 设置封面预览
+        const editCoverNoImage = document.getElementById("editCoverNoImage");
+
+        const editCoverPreviewImg = document.getElementById("editCoverPreviewImg");
+        const editCoverNewPreview = document.getElementById("editCoverNewPreview");
+        const editCoverNewPreviewImg = document.getElementById("editCoverNewPreviewImg");
+
+        editCoverNewPreview.style.display = "none";
+        editCoverNewPreviewImg.src = "";
+
+        if (editCoverNewPreview) {
+            editCoverNewPreview.style.display = "none";
+        }
+        if (editCoverNewPreviewImg) {
+            editCoverNewPreviewImg.src = "";
+        }
+        if (kb_cover_image) {
+            editCoverNoImage.style.display = "none";
+            editCoverPreviewImg.src = `/knowledge/kb/${kb_id}/cover`;
+            editCoverPreviewImg.style.display = "block";
+        } else {
+            editCoverNoImage.style.display = "block";
+            editCoverPreviewImg.src = "";
+            editCoverPreviewImg.style.display = "none";
+        }
+
+
+
+        const editModal = new bootstrap.Modal(document.getElementById('editKbModal'));
+        editModal.show();
+
+    }
+
+    async function updateKb(formEvent) {
+        formEvent.preventDefault();
+        const form = formEvent.target; //获取事件源，因为是表单提交的，所以事件源是form
+        const formData = new FormData(form)
+        const kb_id = document.getElementById("editKbId").value;
+
+        try {
+            const res = await fetch(`/knowledge/update/${kb_id}`, {
+                method: "PUT",
+                body: formData   // 使用 FormData，不要设置 Content-Type，让浏览器自动设置
+            })
+            if (res.ok) {
+                location.reload()
+            }
+            else {
+                const error = await res.json()
+                showCreateKbErrorModal(error.message || '未知错误');
+            }
+
+        } catch (error) {
+            showCreateKbErrorModal(error.message);
+        }
+
+    }
+
+    // 封面图片预览功能
+    document.getElementById("coverImageInput")?.addEventListener("change", function () {
+        const file = this.files[0];
+        const previewContainer = document.getElementById("coverImagePreview");
+        const previewImage = document.getElementById("coverPreviewImg");
+
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                previewImage.src = e.target.result;
+                previewContainer.style.display = "block";
+            }
+            //通过fileReader将图片文件读取为Data URL
+            reader.readAsDataURL(file);
+        } else {
+            previewContainer.style.display = "none";
+            previewImage.src = "";
+        }
+    });
+
+    //编辑的时候封面图片预览功能
+    document.getElementById("editCoverImageInput")?.addEventListener("change", function () {
+        const file = this.files[0];
+        const previewContainer = document.getElementById("editCoverNewPreview");
+        const previewImage = document.getElementById("editCoverNewPreviewImg");
+        const deleteCoverCheckbox = document.getElementById("editDeleteCover");
+
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                previewImage.src = e.target.result;
+                previewContainer.style.display = "block";
+                if (deleteCoverCheckbox) {
+                    deleteCoverCheckbox.checked = false; // 取消删除封面选项
+                }
+            }
+            //通过fileReader将图片文件读取为Data URL
+            reader.readAsDataURL(file);
+        } else {
+            previewContainer.style.display = "none";
+            previewImage.src = "";
+        }
+    });
+
+
+    // 删除封面图片选项变化时的处理
+    document.getElementById("editDeleteCover")?.addEventListener("change", function () {
+        const previewContainer = document.getElementById("editCoverNewPreview");
+        const previewImage = document.getElementById("editCoverNewPreviewImg");
+        const coverImageInput = document.getElementById("editCoverImageInput");
+
+        if (this.checked) {
+            // 如果选择删除封面，隐藏新封面预览并清空文件输入
+            previewContainer.style.display = "none";
+            previewImage.src = "";
+            coverImageInput.value = "";
+        }
+    });
+    function clearSearch() {
+        const searchInput = document.getElementById('searchInput');
+        searchInput.value = '';
+        //移除搜索参数
+        const url = new URL(window.location);
+        url.searchParams.delete('search');
+        url.searchParams.set('page', '1'); // 重置页码为1
+        window.location.href = url.toString();
+    }
+    function updateSearch() {
+        const searchForm = document.getElementById('searchForm');
+        searchForm.page.value = 1; // 重置页码为1
+        searchForm.submit();
+    }
+
+    document.getElementById('searchInput')?.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter') {
+            event.preventDefault(); // 阻止默认的表单提交行为
+            updateSearch(); // 调用更新搜索函数
+        }
+    });
+
+
+
+
+</script>
+{% endblock %}

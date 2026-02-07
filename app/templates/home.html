@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block title %}首页 - RAG Lite{% endblock %}
+
+{% block content %}
+{% if not current_user %}
+<div class="alert alert-info" role="alert">
+    <h5 class="alert-heading"><i class="bi bi-info-circle"></i> 提示</h5>
+    + <p class="mb-0">访问知识库管理和聊天功能需要先 <a href="{{url_for('auth.login')}}" class="alert-link">登录</a> 或 <a
+            href="{{url_for('auth.register')}}" class="alert-link">注册</a>。</p>
+</div>
+{% endif %}
+<div class="row">
+    <div class="col-12">
+        <!-- 项目介绍 -->
+        <div class="card mb-4">
+            <div class="card-body text-center py-5">
+                <h1 class="display-4 mb-4">
+                    <i class="bi bi-book"></i> RAG Lite
+                </h1>
+                <p class="lead mb-4">
+                    RAG（检索增强生成）系统
+                </p>
+                <p class="text-muted mb-4">
+                    基于 LangChain 和 DeepSeek API 构建的轻量级知识库问答系统
+                </p>
+                <div class="d-flex justify-content-center gap-3">
+                    <a href="/knowledge/list" class="btn btn-primary btn-lg">
+                        <i class="bi bi-collection"></i> 知识库管理
+                    </a>
+                    <a href="/chat" class="btn btn-outline-primary btn-lg">
+                        <i class="bi bi-chat-dots"></i> 开始聊天
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 功能特性 -->
+        <div class="row mb-4">
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <div class="mb-3">
+                            <i class="bi bi-file-earmark-text" style="font-size: 3rem; color: #0d6efd;"></i>
+                        </div>
+                        <h5 class="card-title">文档管理</h5>
+                        <p class="card-text text-muted">
+                            支持 PDF、DOCX、TXT、MD 等多种格式文档上传和管理
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <div class="mb-3">
+                            <i class="bi bi-search" style="font-size: 3rem; color: #0d6efd;"></i>
+                        </div>
+                        <h5 class="card-title">智能检索</h5>
+                        <p class="card-text text-muted">
+                            基于向量相似度的智能文档检索，快速找到相关内容
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <div class="mb-3">
+                            <i class="bi bi-robot" style="font-size: 3rem; color: #0d6efd;"></i>
+                        </div>
+                        <h5 class="card-title">智能问答</h5>
+                        <p class="card-text text-muted">
+                            基于文档内容的智能问答，支持流式输出和 Markdown 渲染
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 快速开始 -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-lightning-charge"></i> 快速开始</h5>
+            </div>
+            <div class="card-body">
+                <ol>
+                    <li class="mb-2">
+                        <strong>创建知识库</strong>
+                        <p class="text-muted small mb-0">在知识库管理页面创建新的知识库，设置分块参数和检索参数</p>
+                    </li>
+                    <li class="mb-2">
+                        <strong>上传文档</strong>
+                        <p class="text-muted small mb-0">在知识库详情页面上传文档，系统会自动解析、分块和向量化</p>
+                    </li>
+                    <li class="mb-2">
+                        <strong>开始问答</strong>
+                        <p class="text-muted small mb-0">在聊天页面选择知识库，输入问题即可获得基于文档内容的智能回答</p>
+                    </li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
