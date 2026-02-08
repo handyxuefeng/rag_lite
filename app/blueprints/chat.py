@@ -42,11 +42,38 @@ def chat_with_llm():
     request_json_params = request.get_json()
     questions = request_json_params.get("questions")
     stream = request_json_params.get("stream")
+    session_id = request_json_params.get("session_id")
 
-    logger.info(f"前端提交的参数={questions},stream={stream}")
+    logger.info(f"前端提交的参数={questions},stream={stream},session_id={session_id}")
+
+    current_user = get_current_user()
 
     if not questions:
         return error_response("用户的提问为空", 400)
+
+
+    #初始化历史消息
+    history = None
+
+    if session_id:
+        #如果会话id存在，则获取用户次会话id的历史聊天信息
+        chat_history_message_list = chat_service.get_history_message(session_id,user_id=current_user.get("id"))
+
+        #将历史消息抓换为对话的格式，保留最近的10条消息
+        history = [
+            {"role": message.get("role"), "content": message.get("content")}
+            for message in chat_history_message_list[-10:]
+        ]
+
+    # 如果没有会话ID，创建一个新会话
+    else:
+        chat_session_model_dict = chat_service.create_session(user_id=current_user.get("id"))
+        session_id = chat_session_model_dict.get("id")
+        logger.info(f"创建新会话ID={session_id}")
+
+    # 记录用户的问题
+    chat_service.add_message(session_id,role="user",content=questions)
+
 
     @stream_with_context
     def generate_message():
@@ -59,11 +86,21 @@ def chat_with_llm():
         try:
             # 用于缓存完整的答案内容
             full_answer = ""
-            results = chat_service.chat_stream(questions=questions)
+            results = chat_service.chat_stream(questions=questions,history=history)
             for chunk in results:
                 if chunk.get("type") == "content":
                     full_answer += chunk.get("content")
                 yield f"data: {json.dumps(chunk,ensure_ascii=False)}\n\n"
+
+
+            #循环介绍后，告诉前端答案结束
+            yield f"data: [DONE]\n\n"
+            
+            #大模型回答结束后，也要把大模型回答的内容记录到数据库中
+            if full_answer: 
+                chat_service.add_message(session_id,role="assistant",content=full_answer)
+                
+                
 
         except Exception as e:
             logger.error(f"流式输出出错:{str(e)}")
@@ -152,3 +189,22 @@ def delete_all_sessions():
     except Exception as e:
         logger.error(f"删除所有会话出错:{str(e)}")
         return error_response(f"删除所有会话出错:{str(e)}", 500)
+
+@bp.route("/eidtTitle", methods=["POST"])
+def eidt_session_title():
+    current_user = get_current_user()
+    if not current_user:
+        return error_response("用户未登录", 401)
+    
+    request_json_params = request.get_json()
+    session_id = request_json_params.get("sessionId")
+    title = request_json_params.get("title")
+    
+    try:
+        chatSession_dict = chat_service.eidt_session_title(user_id=current_user.get("id"),session_id=session_id,title=title)
+        if not chatSession_dict:
+            return error_response(f"编辑会话标题失败,会话ID={session_id},用户ID={current_user.get('id')},会话不存在", 400)
+        return success_response(chatSession_dict)
+    except Exception as e:
+        logger.error(f"编辑会话标题出错:{str(e)}")
+        return error_response(f"编辑会话标题出错:{str(e)}", 500)

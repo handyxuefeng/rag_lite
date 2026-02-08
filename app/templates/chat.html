@@ -418,7 +418,8 @@
                 },
                 body: JSON.stringify({
                     questions,
-                    stream: true //告诉后端要流式数据
+                    stream: true, //告诉后端要流式数据
+                    session_id: currentSessionId
                 })
             })
 
@@ -433,6 +434,11 @@
 
             let buffer = '';
             answerContent.innerHTML = '<i class="bi bi-hourglass-split"></i> 思考中...';
+
+            //在大模型返回答案的过程中，实时修改会话标题
+            await initSessionList();
+
+
 
             //读取后端通过生成器发送的回来的数据
             while (true) {
@@ -495,6 +501,7 @@
         }
         finally {
             //请求结束后，清空问题
+             //增加修改会话标题
             questionsInputDom.value = ''
             scrollToBottom();
         }
@@ -528,6 +535,8 @@
         `).join('');
     }
 
+
+    //删除单个会话
     async function deleteSession(event) {
         event.stopPropagation();
         const sessionId = event.target.getAttribute("data-session-id");
@@ -542,6 +551,7 @@
         deleteModal.show();
     }
 
+    //删除所有会话
     async function clearAllSessions() {
         deleleteAction = "all";
         deleteModal = new bootstrap.Modal(document.getElementById('deleteConfirmModal'));
@@ -606,6 +616,31 @@
             deleteAllSessions();
         }
     }
+
+
+    async function addOrEidtSessionTitle(sessionId, title) {
+        console.log('sessionId=', sessionId, 'title=', title);
+        const response = await fetch(`/chat/eidtTitle`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                sessionId: sessionId || "",
+                title: title || ""
+            })
+        });
+        if (response.ok) {
+            const res = await response.json();
+            if (res.code === 200) {
+                showToast(`会话标题编辑成功`);
+            }
+        }
+        else {
+            console.error("编辑会话标题失败");
+        }
+    }
+
 
 
     async function initSessionList() {

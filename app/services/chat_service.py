@@ -1,9 +1,11 @@
+from datetime import datetime
 from langchain_core.prompts import ChatPromptTemplate
 from app.services.settings_service import settings_service
 from app.services.base_service import BaseService
 from app.utils.logger import get_logger
 from app.utils.llm_factory import LLMFactory
 from app.models.chat_session import ChatSession
+from app.models.chat_message import ChatMessage
 
 
 logger = get_logger(__name__)
@@ -14,7 +16,7 @@ class ChatService(BaseService):
     def __init__(self):
         self.settings = settings_service.get_user_settings()
 
-    def chat_stream(self, questions):
+    def chat_stream(self, questions,history=[]):
         # 获取
         temperature = float(self.settings.get("llm_temperature", " 0.7"))
         temperature = max(0.0, min(temperature, 2.0))
@@ -101,22 +103,55 @@ class ChatService(BaseService):
         删除一个会话
         """
         with self.create_db_transaction() as session:
-            # 查询用户的所有会话
+            
+            #1.先判断该会话下是否有消息，有的话，先删除消息
+            message_count = session.query(ChatMessage).filter(ChatMessage.session_id == session_id).count()
+            if message_count > 0:
+                session.query(ChatMessage).filter(ChatMessage.session_id == session_id).delete()
+            
+            # 2.查询用户的所有会话
             query = session.query(ChatSession).filter(ChatSession.user_id == user_id, ChatSession.id == session_id)
             chatSession = query.first()
             if not chatSession:
                 logger.error(f"删除会话失败,会话ID={session_id},用户ID={user_id},会话不存在")
                 return None
             session.delete(chatSession)
+
+           
+
+            #提交事务
+            session.commit()
             session.flush()
+
             logger.info(f"删除会话成功,会话ID={session_id},用户ID={user_id}")
             return chatSession.to_dict()
+
+
+
     def delete_all_sessions(self,user_id):
         """
         删除所有会话
         """
         with self.create_db_transaction() as session:
+
+            #1.先判断该会话下是否有消息，有的话，先删除消息
+            message_count = session.query(ChatMessage).filter(
+                ChatMessage.session_id.in_(
+                session.query(ChatSession.id).filter(ChatSession.user_id == user_id))
+            ).count()
+
+            if message_count > 0:
+                session.query(ChatMessage).filter(
+                    ChatMessage.session_id.in_(
+                    session.query(ChatSession.id).filter(ChatSession.user_id == user_id))
+                ).delete()
+
+
+            #2.删除所有会话 
             deleted_count = session.query(ChatSession).filter(ChatSession.user_id == user_id).delete()
+            
+            #提交事务
+            session.commit()
             session.flush()
             
             if deleted_count == 0:
@@ -125,7 +160,65 @@ class ChatService(BaseService):
            
             logger.info(f"删除所有会话成功,用户ID={user_id},删除数量={deleted_count}")
             return deleted_count
+    
+    def get_history_message(self,session_id,user_id):
+        """
+        获取会话的历史消息
+        """
+        with self.create_db_session() as session:
+            # 查询用户的所有会话
+            if user_id:
+                chatsession_model = session.query(ChatSession).filter(ChatSession.user_id==user_id,ChatSession.id==session_id).first()
+                if not chatsession_model:
+                    return []
+            #查询次会话的历史消息
+            chatmessage_model_list = session.query(ChatMessage).filter(ChatMessage.session_id==session_id).order_by(ChatMessage.created_at).all()
+            return [chat_message_model.to_dict() for chat_message_model in chatmessage_model_list]
 
+    def add_message(self,session_id,role,content,sources=None):
+        """
+        记录用户的问题
+        """
+        with self.create_db_transaction() as session:
+            # 创建一个新的会话
+            chatMessage = ChatMessage(
+                session_id=session_id,
+                role=role,
+                content=content,
+                sources=sources,
+            )
+            session.add(chatMessage)
 
+            #查询当前会话对象，更新会话的更新时间
+            chat_session_model = session.query(ChatSession).filter(ChatSession.id==session_id).first()
+            if chat_session_model:
+                chat_session_model.updated_at = datetime.now()
+
+                #如果是用户问题，且会话标题是默认的"新会话"，则更新会话标题为用户问题的前32个字符   
+                if role == "user" and not chat_session_model.title or chat_session_model.title == "新会话":
+                    chat_session_model.title = content[:32]  + ("..." if len(content) > 32 else "")
+
+            #提交事务
+            session.flush()
+            session.refresh(chatMessage)
+            
+            return chatMessage.to_dict()
+
+    def eidt_session_title(self,user_id,session_id,title):
+        """
+        编辑会话标题
+        """
+        with self.create_db_transaction() as session:
+            # 查询用户的所有会话
+            query = session.query(ChatSession).filter(ChatSession.user_id == user_id, ChatSession.id == session_id)
+            chatSession = query.first()
+            if not chatSession:
+                logger.error(f"编辑会话标题失败,会话ID={session_id},用户ID={user_id},会话不存在")
+                return None
+            chatSession.title = title[:32] if len(title)>32 else title
+            session.flush()
+            session.refresh(chatSession)
+            logger.info(f"编辑会话标题成功,会话ID={session_id},用户ID={user_id},会话标题={title}")
+            return chatSession.to_dict()
 
 chat_service = ChatService()
