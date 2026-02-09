@@ -282,6 +282,22 @@
         }
     }
 
+    // 定义一个用于渲染Markdown文本为HTML的函数
+    function renderMarkdown(text) {
+        // 判断marked库是否已加载且能使用解析方法
+        if (typeof marked !== 'undefined' && marked.parse) {
+            try {
+                // 尝试用marked库将Markdown文本解析成HTML
+                return marked.parse(text);
+            } catch (e) {
+                // 如果解析出错，则进行HTML转义并换行
+                return escapeHtml(text).replace(/\n/g, '<br>');
+            }
+        }
+        // 如果marked库不可用，直接做HTML转义并处理换行
+        return escapeHtml(text).replace(/\n/g, '<br>');
+    }
+
     function renderMarkdownToElement(element, text) {
         if (!text) {
             element.innerHTML = `<i class="bi bi-hourglass-spit"></i>思考中...`
@@ -501,7 +517,7 @@
         }
         finally {
             //请求结束后，清空问题
-             //增加修改会话标题
+            //增加修改会话标题
             questionsInputDom.value = ''
             scrollToBottom();
         }
@@ -609,7 +625,7 @@
 
 
     async function confirmDeleteSession() {
-        if (deleleteAction =="one") {
+        if (deleleteAction == "one") {
             deleteSessionHandle();
         }
         else if (deleleteAction == "all") {
@@ -617,27 +633,71 @@
         }
     }
 
+    // 渲染消息
+    function renderChatMessages(messages) {
+        const chatMessages = document.getElementById('chatMessages');
 
-    async function addOrEidtSessionTitle(sessionId, title) {
-        console.log('sessionId=', sessionId, 'title=', title);
-        const response = await fetch(`/chat/eidtTitle`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                sessionId: sessionId || "",
-                title: title || ""
-            })
+        if (messages.length === 0) {
+            chatMessages.innerHTML = `
+                <div class="empty-state">
+                    <i class="bi bi-chat-left-text" style="font-size: 3rem;"></i>
+                    <p class="mt-2">开始提问吧！</p>
+                </div>
+            `;
+            return;
+        }
+
+        chatMessages.innerHTML = messages.map(msg => {
+            if (msg.role === 'user') {
+                return `
+                    <div class="chat-message chat-question">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <strong><i class="bi bi-person-circle"></i> 问题:</strong>
+                                <div class="mt-1">${escapeHtml(msg.content)}</div>
+                            </div>
+                            <small class="text-muted">${formatTime(msg.created_at)}</small>
+                        </div>
+                    </div>
+                `;
+            } else {
+                const sourcesHtml = ""; ///generateSourcesHtml(msg.sources, msg.metadata, null);
+                return `
+                    <div class="chat-message chat-answer">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <strong><i class="bi bi-robot"></i> 答案:</strong>
+                                <div class="mt-2 markdown-content">${renderMarkdown(msg.content)}</div>
+                                ${sourcesHtml}
+                            </div>
+                            <small class="text-muted">${formatTime(msg.created_at)}</small>
+                        </div>
+                    </div>
+                `;
+            }
+        }).join('');
+
+        scrollToBottom();
+    }
+    async function loadSession(sessionId) {
+        const response = await fetch(`/chat/getSession/${sessionId}`, {
+            method: "GET",
         });
         if (response.ok) {
             const res = await response.json();
+            const { session, messages } = res.data || {};
+            console.log('得到的会话=', session);
+            console.log('得到的消息=', messages);
             if (res.code === 200) {
-                showToast(`会话标题编辑成功`);
+                currentSessionId = session.id || "";
+                //await renderSessionList();
+                // 调用方法将消息渲染到页面
+                renderChatMessages(messages);
+                // 重新加载全部会话列表，刷新左侧会话栏
+                await initSessionList();
             }
         }
         else {
-            console.error("编辑会话标题失败");
         }
     }
 

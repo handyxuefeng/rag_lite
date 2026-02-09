@@ -221,4 +221,32 @@ class ChatService(BaseService):
             logger.info(f"编辑会话标题成功,会话ID={session_id},用户ID={user_id},会话标题={title}")
             return chatSession.to_dict()
 
+    def get_session(self,user_id,session_id):
+        """
+        获取会话
+        """
+        with self.create_db_session() as session:
+            # 查询用户的所有会话
+            query = session.query(ChatSession).filter(ChatSession.user_id == user_id, ChatSession.id == session_id)
+            chatSession = query.first()
+            if not chatSession:
+                logger.error(f"获取会话失败,会话ID={session_id},用户ID={user_id},会话不存在")
+                return None
+            logger.info(f"获取会话成功,会话ID={session_id},用户ID={user_id}")
+            return chatSession.to_dict()
+
+    def get_messages(self,user_id,session_id):
+        """
+        获取会话的所有消息
+        """
+        with self.create_db_session() as session:
+            # 查询用户的所有会话
+            query = session.query(ChatMessage).filter(ChatMessage.session_id == session_id).order_by(ChatMessage.created_at.asc())
+            chatMessages = query.all()
+            if not chatMessages:
+                logger.error(f"获取会话消息失败,会话ID={session_id},用户ID={user_id},会话不存在")
+                return []
+            logger.info(f"获取会话消息成功,会话ID={session_id},用户ID={user_id},消息数量={len(chatMessages)}")
+            return [chatMessage.to_dict() for chatMessage in chatMessages]
+
 chat_service = ChatService()

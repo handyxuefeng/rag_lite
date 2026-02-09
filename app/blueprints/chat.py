@@ -208,3 +208,27 @@ def eidt_session_title():
     except Exception as e:
         logger.error(f"编辑会话标题出错:{str(e)}")
         return error_response(f"编辑会话标题出错:{str(e)}", 500)
+
+@bp.route("/getSession/<session_id>", methods=["GET"])
+def get_session(session_id):
+    current_user = get_current_user()
+    if not current_user:
+        return error_response("用户未登录", 401)
+    
+    try:
+
+        # 1.先获取会话model
+        chatSession_dict = chat_service.get_session(user_id=current_user.get("id"),session_id=session_id)
+        if not chatSession_dict:
+            return error_response(f"获取会话失败,会话ID={session_id},用户ID={current_user.get('id')},会话不存在", 400)
+
+        #2.根据会话ID，获取该会话的所有消息
+        messages_dict = chat_service.get_messages(user_id=current_user.get("id"),session_id=session_id)
+        
+        return success_response({
+            "session": chatSession_dict,
+            "messages": messages_dict,
+        })
+    except Exception as e:
+        logger.error(f"获取会话出错:{str(e)}")
+        return error_response(f"获取会话出错:{str(e)}", 500)
