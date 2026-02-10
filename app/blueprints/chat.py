@@ -13,6 +13,7 @@ from app.utils.logger import get_logger
 
 from app.http.utils import error_response, success_response
 from app.services.chat_service import chat_service
+from app.services.knowledge_service import knowledge_service
 
 from app.utils.auth import get_current_user 
 
@@ -34,7 +35,18 @@ bp = Blueprint("chat", __name__, url_prefix="/chat")
 
 @bp.route("")
 def llm_chat():
-    return render_template("chat.html")
+    current_user = get_current_user()
+
+    page, page_size = get_pagination_params()
+
+    # 查询知识库列表
+    knowledgebase_list = knowledge_service.list(user_id=current_user.get("id"),page=page,page_size=page_size)    
+
+    logger.info(f"知识库列表lllllllllllllll={knowledgebase_list}")   
+
+
+
+    return render_template("chat.html",knowledgebases=knowledgebase_list["items"])
 
 
 @bp.route("/llm", methods=["POST"])
@@ -43,13 +55,28 @@ def chat_with_llm():
     questions = request_json_params.get("questions")
     stream = request_json_params.get("stream")
     session_id = request_json_params.get("session_id")
+    kb_id = request_json_params.get("kb_id")
+    
+    # 检查max_tokens参数是否合法
+    max_tokens = request_json_params.get("max_tokens",1024)
+    max_tokens = max(1,min(max_tokens,102400))
 
-    logger.info(f"前端提交的参数={questions},stream={stream},session_id={session_id}")
+    logger.info(f"前端提交的参数={questions},stream={stream},session_id={session_id},kb_id={kb_id},max_tokens={max_tokens}")
 
     current_user = get_current_user()
 
     if not questions:
         return error_response("用户的提问为空", 400)
+
+
+    # 检查的当前知识库是否属于当前用户
+    if kb_id:
+        knowledgebase_model_dict = knowledge_service.get_by_id(kb_id)
+        if not knowledgebase_model_dict:
+            return error_response(f"知识库ID={kb_id}不存在", 400)
+        
+        if knowledgebase_model_dict.get("user_id") != current_user.get("id"):
+            return error_response(f"知识库ID={kb_id}不属于当前用户", 400)
 
 
     #初始化历史消息
@@ -67,7 +94,7 @@ def chat_with_llm():
 
     # 如果没有会话ID，创建一个新会话
     else:
-        chat_session_model_dict = chat_service.create_session(user_id=current_user.get("id"))
+        chat_session_model_dict = chat_service.create_session(user_id=current_user.get("id"),kb_id=kb_id)
         session_id = chat_session_model_dict.get("id")
         logger.info(f"创建新会话ID={session_id}")
 
@@ -86,7 +113,7 @@ def chat_with_llm():
         try:
             # 用于缓存完整的答案内容
             full_answer = ""
-            results = chat_service.chat_stream(questions=questions,history=history)
+            results = chat_service.chat_stream(questions=questions,history=history,kb_id=kb_id,max_tokens=max_tokens)
             for chunk in results:
                 if chunk.get("type") == "content":
                     full_answer += chunk.get("content")
@@ -100,8 +127,6 @@ def chat_with_llm():
             if full_answer: 
                 chat_service.add_message(session_id,role="assistant",content=full_answer)
                 
-                
-
         except Exception as e:
             logger.error(f"流式输出出错:{str(e)}")
             error_chunk = {"type": "error", "content": str(e)}
@@ -131,9 +156,11 @@ def create_session():
     data = request.get_json()
     #获取会话标题
     title = data.get("title","")
+    #从请求体中获取kb_id
+    kb_id = data.get("kb_id")
     
     try:
-        session_id = chat_service.create_session(user_id=current_user.get("id"),title=title)
+        session_id = chat_service.create_session(user_id=current_user.get("id"),title=title,kb_id=kb_id)
         return success_response(session_id)
     except Exception as e:
         logger.error(f"创建会话出错:{str(e)}")

@@ -90,7 +90,7 @@ class KnowledgeService(BaseService[Knowledgebase]):
         page_size=10,
         user_id=None,
         search="",
-        sort_by="created_at",
+        sort_by="updated_at",
         sort_order="desc",
     ):
         """

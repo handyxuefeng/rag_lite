@@ -16,7 +16,7 @@ class ChatService(BaseService):
     def __init__(self):
         self.settings = settings_service.get_user_settings()
 
-    def chat_stream(self, questions,history=[]):
+    def chat_stream(self, questions,history=[],kb_id=None,max_tokens=1024):
         # 获取
         temperature = float(self.settings.get("llm_temperature", " 0.7"))
         temperature = max(0.0, min(temperature, 2.0))
@@ -90,7 +90,10 @@ class ChatService(BaseService):
         with self.create_db_session() as session:
             # 查询用户的所有会话
             query = session.query(ChatSession).filter(ChatSession.user_id == user_id)
+            logger.info(f"查询用户{user_id}知识库{kb_id}下的会话")
             if kb_id:
+                # 如果有知识库ID，只查询该知识库下的会话
+                
                 query = query.filter(ChatSession.kb_id == kb_id)
 
             chatSessions_dict = self.pagination_query(query, page, page_size, order_by=ChatSession.updated_at.desc())

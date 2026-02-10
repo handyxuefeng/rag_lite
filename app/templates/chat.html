@@ -214,6 +214,8 @@
     let currentSessionId = null;
     let sessions = [];
 
+    let kb_id = null;
+
     //让大模型返回的流式答案始终在最底部展示，
     function scrollToBottom() {
         // 获取聊天消息区域元素
@@ -341,12 +343,16 @@
     }
 
     async function createNewSession(title = "新会话") {
+        //从下拉框中获取kb_id
+        kb_id = document.getElementById("kbSelect").value;
         const response = await fetch('/chat/createSession', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({}),
+            body: JSON.stringify({
+                kb_id
+            }),
         });
 
         const res = await response.json();
@@ -435,7 +441,8 @@
                 body: JSON.stringify({
                     questions,
                     stream: true, //告诉后端要流式数据
-                    session_id: currentSessionId
+                    session_id: currentSessionId,
+                    kb_id: kb_id
                 })
             })
 
@@ -741,6 +748,11 @@
             });
         }
     });
+
+    async function onKbChange() {
+        kb_id = document.getElementById("kbSelect").value;
+        await initSessionList();
+    }
 
 
 
