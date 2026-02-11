@@ -36,7 +36,6 @@ covers
 covers/
 covers/*
 ./chroma_db
-models
 embeddingModels
 test
 logs/*
