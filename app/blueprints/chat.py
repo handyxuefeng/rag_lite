@@ -113,7 +113,12 @@ def chat_with_llm():
         try:
             # 用于缓存完整的答案内容
             full_answer = ""
-            results = chat_service.chat_stream(questions=questions,history=history,kb_id=kb_id,max_tokens=max_tokens)
+            if kb_id:
+                #如果有知识库id，则调用知识库的问答接口
+                results = chat_service.ask_knowledgebase(questions=questions,history=history,kb_id=kb_id,max_tokens=max_tokens)
+            else:
+                #否则调用大模型普通的问答接口 
+                results = chat_service.chat_stream(questions=questions,history=history,max_tokens=max_tokens)
             for chunk in results:
                 if chunk.get("type") == "content":
                     full_answer += chunk.get("content")

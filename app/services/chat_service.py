@@ -6,6 +6,7 @@ from app.utils.logger import get_logger
 from app.utils.llm_factory import LLMFactory
 from app.models.chat_session import ChatSession
 from app.models.chat_message import ChatMessage
+from app.services.rag_services import rag_service
 
 
 logger = get_logger(__name__)
@@ -15,6 +16,10 @@ class ChatService(BaseService):
 
     def __init__(self):
         self.settings = settings_service.get_user_settings()
+
+    def ask_knowledgebase(self, questions,history=[],kb_id=None,max_tokens=1024):
+        # 从知识库中获取相关文档
+        return rag_service.ask_quetions_by_knowledgebase(kb_id,questions)
 
     def chat_stream(self, questions,history=[],kb_id=None,max_tokens=1024):
         # 获取
@@ -73,7 +78,7 @@ class ChatService(BaseService):
             # 创建一个新的会话
             chatSession = ChatSession(
                 user_id=user_id,
-                kb_id=kb_id,
+                kb_id=kb_id if kb_id else None,
                 title=title,
             )
             session.add(chatSession)
