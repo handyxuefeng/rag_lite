@@ -116,3 +116,27 @@ class MilvusVectorDB(VectorBaseService):
         except Exception as e:
             logger.error(f"删除Milvus集合{collection_name}失败，错误信息={e}")
             return False
+
+    def similarity_search_with_score(self, collection_name, query, k=10, filter=None):
+        """
+        向量检索
+        """
+        vector_store_db = self.get_or_create_collection(collection_name)
+
+        # Milvus默认是懒加载，需要手动加载集合
+        if hasattr(vector_store_db, "_collection"):
+            try:
+                vector_store_db._collection.load()
+                logger.info(f"已经加载集合{collection_name}")
+            except Exception as e:
+                raise Exception(f"集合可能不存在：{e}")
+
+        if filter:
+            expr = f"doc_id == '{filter["doc_id"]}'"
+
+        results = vector_store_db.similarity_search_with_score(
+            query=query, expr=expr, k=k
+        )
+        if results:
+            return results
+        return None

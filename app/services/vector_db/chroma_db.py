@@ -29,7 +29,8 @@ class ChromaVectorDB(VectorBaseService):
         vector_store_db = Chroma(
             collection_name=collection_name,  # 集合的名称
             embedding_function=self.embeddings,  # 嵌入向量
-            persist_directory=self.persistent_dirtory,  # 想爱你个数据保存目录
+            persist_directory=self.persistent_dirtory,  # 数据保存目录
+            collection_metadata={"hnsw:space": "cosine"}, # 向量距离计算方式
         )
 
         return vector_store_db
@@ -91,3 +92,16 @@ class ChromaVectorDB(VectorBaseService):
         except Exception as e:
             logger.error(f"删除集合{collection_name}失败，错误信息={e}")
             return False
+
+
+    def similarity_search_with_score(self, collection_name, query, k=10, filter=None):
+        """
+        相似度检索
+        """
+        vector_store_db = self.get_or_create_collection(collection_name)
+        results = vector_store_db.similarity_search_with_score(
+            query=query, filter=filter, k=k
+        )
+        if results:
+            return results
+        return None
