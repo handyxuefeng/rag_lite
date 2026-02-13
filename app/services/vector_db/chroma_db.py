@@ -105,3 +105,13 @@ class ChromaVectorDB(VectorBaseService):
         if results:
             return results
         return None
+
+    def get_all_content_from_collection(self, collection_name):
+        """
+        获取集合中的所有文档内容
+        """
+        vector_store_db = self.get_or_create_collection(collection_name)
+        results = vector_store_db._collection.get(include=["documents","metadatas","embeddings"])
+        if results:
+            return results
+        return None

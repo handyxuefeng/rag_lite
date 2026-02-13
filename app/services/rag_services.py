@@ -38,11 +38,15 @@ class RagService(BaseService):
             return ""
 
         #根据用户在设置页面设置的检索模式
-        retriever_mode = self.settings.get("retriever_mode", "vector")
+        retriever_mode = self.settings.get("retrieval_mode", "vector")
 
         if retriever_mode == "vector":
             # 从知识库中获取相关文档
             docs = retriever_service.vector_search(collection_name,questions)
+
+        elif retriever_mode == "keyword":
+            # 从知识库中获取相关文档
+            docs = retriever_service.keyword_search(collection_name,questions)
                 
         else:
             logger.info(f"未知的检索模式={retriever_mode}")
@@ -52,7 +56,6 @@ class RagService(BaseService):
         logger.info(f"知识库查询完成,知识库ID={kb_id},问题={questions},检索模式={retriever_mode},文档数量={len(docs)}")
         
         return docs
-
 
     def ask_quetions_by_knowledgebase(self,kb_id,questions):
         # 从知识库中获取相关文档
