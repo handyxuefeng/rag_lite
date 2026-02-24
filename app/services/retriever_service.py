@@ -162,11 +162,13 @@ class RetrieverService(BaseService):
             # 6. 筛选出 BM25 分数大于等于阀值的文档
             filter_docs = []
 
-            #根据筛选出来的bm25分数最高分排序索引，筛选出大于等于阀值的文档
+            # 根据筛选出来的bm25分数最高分排序索引，筛选出大于等于阀值的文档
             for idx in top_incices:
                 if normalized_scores[idx] >= keyword_threshold:
                     doc = all_docs[idx]
-                    doc.metadata["retrieval_type"] = "keyword"
+                    doc.metadata["retrieval_type"] = (
+                        "keyword"  # 设置检索类型为关键词检索
+                    )
                     doc.metadata["keyword_score"] = normalized_scores[idx]
                     filter_docs.append((doc, normalized_scores[idx]))
 
@@ -174,11 +176,9 @@ class RetrieverService(BaseService):
             filter_docs.sort(key=lambda x: x[1], reverse=True)
 
             # 8. 只返回top_k个文档
-            final_docs_result = [doc for doc,_ in filter_docs[:top_k]]
-            
-            logger.info(
-                f"bm25关键词检索成功,返回文档数={len(final_docs_result)}"
-            )
+            final_docs_result = [doc for doc, _ in filter_docs[:top_k]]
+
+            logger.info(f"bm25关键词检索成功,返回文档数={len(final_docs_result)}")
 
             return final_docs_result
 
@@ -186,7 +186,128 @@ class RetrieverService(BaseService):
             logger.error(f"从数据库中获取集合{collection_name}所有文档内容失败")
             return None
 
-        
+    def hybrid_search(self, collection_name, questions, rff_k=60):
+        """
+        混合检索,使用rff 融合向量检索和全文检索
+        """
+
+        # 向量检索的结果
+        vector_docs = self.vector_search(collection_name, questions)
+
+        # 全文检索的结果
+        keyword_docs = self.keyword_search(collection_name, questions)
+
+        """
+        创建字典用于存储文本及其排名信息
+        doc_rankings = {
+          "100011_1":{
+            "doc": Document(
+                page_content="这是一个文档",
+                metadata={
+                    "id": "100011_1",
+                    "vector_score": 0.8,
+                    "keyword_score": 0.7,
+                },
+            ),
+            "vector_rank": 1,
+            "keyword_rank": 2,
+          }
+        }
+        """
+        doc_rankings = {}
+
+        # 遍历向量检索结果,将每个文档的id作为键,分数作为值存储到字典中
+        for rank, doc in enumerate(vector_docs, start=1):
+            chunk_id = doc.metadata.get("id", None)
+            # 文档不存在时,初始化文档信息
+            if chunk_id not in doc_rankings:
+                doc_rankings[chunk_id] = {"doc": doc}
+            # 记录向量检索的排名
+            doc_rankings[chunk_id]["vector_rank"] = rank
+            # 记录向量检索的分数
+            doc_rankings[chunk_id]["vector_score"] = doc.metadata.get(
+                "vector_score", 0.0
+            )
+
+        # 遍历全文检索结果,将每个文档的id作为键,分数作为值存储到字典中
+        for rank, doc in enumerate(keyword_docs, start=1):
+            chunk_id = doc.metadata.get("id", None)
+            # 文档不存在时,初始化文档信息
+            if chunk_id not in doc_rankings:
+                doc_rankings[chunk_id] = {"doc": doc}
+            # 记录全文检索的排名
+            doc_rankings[chunk_id]["keyword_rank"] = rank
+            # 记录全文检索的分数
+            doc_rankings[chunk_id]["keyword_score"] = doc.metadata.get(
+                "keyword_score", 0.0
+            )
+
+        # 从设置中读取向量检索的权重
+        vector_weight = float(self.settings.get("vector_weight", 0.1))
+
+        # 从设置中读取全文检索的权重
+        keyword_weight = 1 - vector_weight
+
+
+        # 计算每个文档的融合分数
+        """
+        doc_rankings = {
+          "100011_1":{
+            "doc": Document(
+                page_content="这是一个文档",
+                metadata={
+                    "id": "100011_1",
+                    "vector_score": 0.8,
+                    "keyword_score": 0.7,
+                },
+            ),
+            "vector_rank": 1,
+            "keyword_rank": 2,
+
+          }
+        }
+        """
+        for chunk_id, rank_info in doc_rankings.items():
+            # 获取向量排名
+            vector_rank = rank_info.get("vector_rank", 0)
+            # 获取全文排名
+            keyword_rank = rank_info.get("keyword_rank", 0)
+
+            # 初始化rff排名
+            rff_score = 0.0
+
+            # 计算rff排名
+            rff_score += vector_weight / (rff_k + vector_rank)
+            rff_score += keyword_weight / (rff_k + keyword_rank)
+
+            # 存储rff排名
+            doc_rankings[chunk_id]["rff_score"] = rff_score
+
+        # 提取排序后的文档
+        combined_results = [(chunk_id, rank_info) for chunk_id, rank_info in doc_rankings.items()]
+
+        combined_results.sort(key=lambda x: x[1].get("rff_score", 0.0), reverse=True)
+
+        # 提取排序后的文档
+        top_k = int(self.settings.get("top_k", 5))
+
+        # 提取前top_k个文档
+        final_results = []
+        for chunk_id, rank_info in combined_results[:top_k]:
+            doc = rank_info["doc"]
+            doc.metadata["vector_score"] = rank_info.get("vector_score", 0.0)
+            doc.metadata["keyword_score"] = rank_info.get("keyword_score", 0.0)
+            doc.metadata["rff_score"] = rank_info.get("rff_score", 0.0)
+            doc.metadata["vector_rank"] = rank_info.get("vector_rank", 0)
+            doc.metadata["keyword_rank"] = rank_info.get("keyword_rank", 0)
+            doc.metadata["retrieval_type"] = "hybrid"
+            final_results.append(doc)
+
+        logger.info(f"混合检索返回{len(final_results)}个文档,检索到文档为：{final_results}")
+
+        return final_results
+
+
 
 
 retriever_service = RetrieverService()

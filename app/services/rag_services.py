@@ -47,6 +47,10 @@ class RagService(BaseService):
         elif retriever_mode == "keyword":
             # 从知识库中获取相关文档
             docs = retriever_service.keyword_search(collection_name,questions)
+        
+        elif retriever_mode == "hybrid":
+            # 从知识库中获取相关文档
+            docs = retriever_service.hybrid_search(collection_name,questions)
                 
         else:
             logger.info(f"未知的检索模式={retriever_mode}")
