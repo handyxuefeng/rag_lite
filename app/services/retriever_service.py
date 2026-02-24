@@ -8,6 +8,9 @@ from app.utils.logger import get_logger
 from app.services.vector_db.vector_sevice import vector_db_service
 from app.services.settings_service import settings_service
 
+# 引入重排序
+from app.utils.rerank_factory import RerankFactory
+
 
 logger = get_logger(__name__)
 
@@ -16,6 +19,7 @@ class RetrieverService(BaseService):
 
     def __init__(self):
         self.settings = settings_service.get_user_settings()
+        self.reranker = RerankFactory.create_reranker(self.settings)
 
     # 向量检索
     def vector_search(self, collection_name, questions):
@@ -55,6 +59,10 @@ class RetrieverService(BaseService):
 
             # 只返回top_k个文档
             filter_docs = filter_docs[:top_k]
+
+            # 对文档列表进行重排序
+            if self.reranker:
+                filter_docs = self.apply_rerank_results(questions, filter_docs, top_k=top_k)
 
             return filter_docs
 
@@ -103,6 +111,7 @@ class RetrieverService(BaseService):
         ]
         return tokens
 
+    # 关键词检索
     def keyword_search(self, collection_name, questions):
         """
         关键词检索
@@ -178,6 +187,10 @@ class RetrieverService(BaseService):
             # 8. 只返回top_k个文档
             final_docs_result = [doc for doc, _ in filter_docs[:top_k]]
 
+            # 9. 对文档列表进行重排序
+            if self.reranker:
+                final_docs_result = self.apply_rerank_results(questions, final_docs_result, top_k=top_k)
+
             logger.info(f"bm25关键词检索成功,返回文档数={len(final_docs_result)}")
 
             return final_docs_result
@@ -186,6 +199,7 @@ class RetrieverService(BaseService):
             logger.error(f"从数据库中获取集合{collection_name}所有文档内容失败")
             return None
 
+    # 混合检索
     def hybrid_search(self, collection_name, questions, rff_k=60):
         """
         混合检索,使用rff 融合向量检索和全文检索
@@ -303,11 +317,44 @@ class RetrieverService(BaseService):
             doc.metadata["retrieval_type"] = "hybrid"
             final_results.append(doc)
 
+        # 对文档列表进行重排序
+        if self.reranker:
+            final_results = self.apply_rerank_results(questions, final_results, top_k=top_k)
+
         logger.info(f"混合检索返回{len(final_results)}个文档,检索到文档为：{final_results}")
 
         return final_results
 
+    #对检索后的结果重排序
+    def apply_rerank_results(self, query, documents, top_k=None):
+        """
+        对检索后的文档列表进行重排序
+        """
+        if not self.reranker or not documents:
+            logger.warning("未配置重排序模型，无法对文档进行重排序")
+            return documents
+        try:
+            reranked_docs = self.reranker.rerank(query, documents, top_k=top_k)
+            for doc,rerank_score in reranked_docs:
+                doc.metadata["rerank_score"] = rerank_score
+                doc.metadata["retrieval_type"] = doc.metadata.get("retrieval_type", "unknown")
+                logger.info(f"已经应用了重排序:{len(reranked_docs)}个文档")
 
+            return [doc for doc,_ in reranked_docs]
+
+        except Exception as e:
+            logger.error(f"重排序文档时出错：{e}")
+            return documents
 
 
 retriever_service = RetrieverService()
+
+"""
+文档的检索服务，包括bm25关键词检索、向量检索、混合检索等。返回检索到的文档列表。文档中包含的分数有
+1. 向量检索分数 vector_score
+2. 全文检索分数 keyword_score
+3. 融合检索分数 rff_score
+4. 重排序分数 rerank_score
+5. 检索类型 retrieval_type （向量、bm25、混合）
+
+"""

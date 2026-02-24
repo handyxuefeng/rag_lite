@@ -40,3 +40,4 @@ embeddingModels
 test
 logs/*
 uv.lock
+rerankerModel
