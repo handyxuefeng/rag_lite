@@ -22,7 +22,7 @@ class RetrieverService(BaseService):
         self.reranker = RerankFactory.create_reranker(self.settings)
 
     # 向量检索
-    def vector_search(self, collection_name, questions):
+    def vector_search(self, collection_name, questions,rerank=True):
         """
         向量检索
         """
@@ -61,7 +61,7 @@ class RetrieverService(BaseService):
             filter_docs = filter_docs[:top_k]
 
             # 对文档列表进行重排序
-            if self.reranker:
+            if self.reranker and rerank:
                 filter_docs = self.apply_rerank_results(questions, filter_docs, top_k=top_k)
 
             return filter_docs
@@ -112,7 +112,7 @@ class RetrieverService(BaseService):
         return tokens
 
     # 关键词检索
-    def keyword_search(self, collection_name, questions):
+    def keyword_search(self, collection_name, questions,rerank=True):
         """
         关键词检索
         """
@@ -188,7 +188,7 @@ class RetrieverService(BaseService):
             final_docs_result = [doc for doc, _ in filter_docs[:top_k]]
 
             # 9. 对文档列表进行重排序
-            if self.reranker:
+            if self.reranker and rerank:
                 final_docs_result = self.apply_rerank_results(questions, final_docs_result, top_k=top_k)
 
             logger.info(f"bm25关键词检索成功,返回文档数={len(final_docs_result)}")
@@ -206,10 +206,10 @@ class RetrieverService(BaseService):
         """
 
         # 向量检索的结果
-        vector_docs = self.vector_search(collection_name, questions)
+        vector_docs = self.vector_search(collection_name, questions,rerank=False)
 
         # 全文检索的结果
-        keyword_docs = self.keyword_search(collection_name, questions)
+        keyword_docs = self.keyword_search(collection_name, questions,rerank=False)
 
         """
         创建字典用于存储文本及其排名信息
@@ -283,9 +283,9 @@ class RetrieverService(BaseService):
         """
         for chunk_id, rank_info in doc_rankings.items():
             # 获取向量排名
-            vector_rank = rank_info.get("vector_rank", 0)
+            vector_rank = rank_info.get("vector_rank", rff_k+1)
             # 获取全文排名
-            keyword_rank = rank_info.get("keyword_rank", 0)
+            keyword_rank = rank_info.get("keyword_rank", rff_k+1)
 
             # 初始化rff排名
             rff_score = 0.0
@@ -337,7 +337,6 @@ class RetrieverService(BaseService):
             reranked_docs = self.reranker.rerank(query, documents, top_k=top_k)
             for doc,rerank_score in reranked_docs:
                 doc.metadata["rerank_score"] = rerank_score
-                doc.metadata["retrieval_type"] = doc.metadata.get("retrieval_type", "unknown")
                 logger.info(f"已经应用了重排序:{len(reranked_docs)}个文档")
 
             return [doc for doc,_ in reranked_docs]

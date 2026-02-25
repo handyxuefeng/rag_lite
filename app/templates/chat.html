@@ -300,6 +300,164 @@
         return escapeHtml(text).replace(/\n/g, '<br>');
     }
 
+    /**
+     * 生成引用来源的 HTML 字符串
+     * sources=[{
+            "doc_name": doc_name,
+            "vector_score": vector_score * 100,
+            "keyword_score": keyword_score * 100,
+            "rff_score": rff_score * 100,
+            "rerank_score": rerank_score * 100,
+            "retrieval_type": retrieval_type,
+            "chunk_id": chunk_id,
+            "doc_id": doc_id,
+            "content": content
+        }]
+     * 生成引用来源的 HTML 字符串
+     * @param {Array} sources - 引用来源数组
+     * @param {Object} metadata - 元数据对象
+     * @param {string} currentKbId - 当前知识库ID
+     * @returns {string} 生成的 HTML 字符串
+     */
+    function generateSourcesHtml(sources, metadata, currentKbId) {
+        // 如果 sources 存在、且是数组且长度大于0
+        if (sources && Array.isArray(sources) && sources.length > 0) {
+            // 对每个 source 逐个生成 html
+            const sourcesHtml = sources.map((source, idx) => {
+                // 初始化分数数组
+                const scores = [];
+                // 定义辅助函数: 安全转换分数字段
+                const getScore = (score) => {
+                    // 如果为空则返回 null
+                    if (score === null || score === undefined) return null;
+                    // 字符串转换为浮点数，否则直接返回
+                    const num = typeof score === 'string' ? parseFloat(score) : score;
+                    // 非数值返回 null，否则返回数字
+                    return isNaN(num) ? null : num;
+                };
+                // 获取检索类型，默认为 unknown
+                const retrievalType = source.retrieval_type || 'unknown';
+                // 是否为 vector 检索
+                const isVector = retrievalType.includes('vector');
+                // 是否为 keyword 检索
+                const isKeyword = retrievalType.includes('keyword');
+                // 是否为 hybrid 混合检索
+                const isHybrid = retrievalType.includes('hybrid');
+                // 如果是仅向量检索并且不是混合
+                if (isVector && !isHybrid) {
+                    // 获取向量分数
+                    const vectorScore = getScore(source.vector_score);
+                    // 有效且大于等于0则添加 badge
+                    if (vectorScore !== null && vectorScore >= 0) {
+                        scores.push(`<span class="badge bg-info me-1">向量相似度: ${vectorScore.toFixed(4)}</span>`);
+                    }
+                }
+                // 如果是仅关键词检索并且不是混合
+                if (isKeyword && !isHybrid) {
+                    // 获取关键词分数
+                    const keywordScore = getScore(source.keyword_score);
+                    // 有效且大于等于0则添加 badge
+                    if (keywordScore !== null && keywordScore >= 0) {
+                        scores.push(`<span class="badge bg-success me-1">关键词相似度: ${keywordScore.toFixed(4)}</span>`);
+                    }
+                }
+                // 如果是混合检索
+                if (isHybrid) {
+                    // 获取向量分数
+                    const vectorScore = getScore(source.vector_score);
+                    // 有效且大于等于0则添加 badge
+                    if (vectorScore !== null && vectorScore >= 0) {
+                        scores.push(`<span class="badge bg-info me-1">向量相似度: ${vectorScore.toFixed(4)}</span>`);
+                    }
+                    // 获取关键词分数
+                    const keywordScore = getScore(source.keyword_score);
+                    // 有效且大于等于0则添加 badge
+                    if (keywordScore !== null && keywordScore >= 0) {
+                        scores.push(`<span class="badge bg-success me-1">关键词相似度: ${keywordScore.toFixed(4)}</span>`);
+                    }
+                    // 获取混合 RRF 分数
+                    const rrfScore = getScore(source.rff_score);
+                    // 有效且大于等于0则添加 badge
+                    if (rrfScore !== null && rrfScore >= 0) {
+                        scores.push(`<span class="badge bg-primary me-1">RRF 分数: ${rrfScore.toFixed(4)}</span>`);
+                    }
+                    
+                }
+                // 获取重排序分数，并显示
+                const rerankScore = getScore(source.rerank_score);
+                // 有效且大于等于0则添加 badge
+                if (rerankScore !== null && rerankScore >= 0) {
+                    scores.push(`<span class="badge bg-danger me-1">重排序分数: ${rerankScore.toFixed(4)}</span>`);
+                }
+                // 返回单个引用块的 html 字符串
+                return `
+                    <div class="source-item mb-3 p-2 border rounded">
+                        <div class="fw-bold mb-1">
+                            <i class="bi bi-file-earmark"></i> ${idx + 1}. ${source.doc_name || '未知文档'}
+                        </div>
+                        <div class="mb-2">
+                            ${scores.length > 0 ? scores.join('') : '<span class="text-muted small">暂无分数信息</span>'}
+                        </div>
+                        <div class="small text-muted">
+                            <strong>分块内容：</strong>
+                            <div class="mt-1 p-2 bg-white rounded" style="max-height: 150px; overflow-y: auto; font-size: 0.9em;">
+                                ${escapeHtml(source.content || '')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                // 连接所有的引用来源 HTML
+            }).join('');
+            // 返回所有引用来源的 html 块
+            return `
+                <div class="mt-3 p-3 bg-light rounded">
+                    <strong><i class="bi bi-link-45deg"></i> 引用来源 (${sources.length} 个):</strong>
+                    <div class="mt-2">
+                        ${sourcesHtml}
+                    </div>
+                </div>
+            `;
+            // 如果传入了知识库ID但是没有 sources
+        } else if (currentKbId) {
+            // 从元数据获取检索块数，没有则为0
+            const retrievedChunks = (metadata && metadata.retrieved_chunks) || 0;
+            // 定义提示信息
+            let message = '';
+            // 若未检索到任何文档，提示排查信息
+            if (retrievedChunks === 0) {
+                message = '未检索到任何文档。请检查：1) 知识库中是否有文档；2) 文档是否已处理完成；3) 检索阈值是否设置过高。';
+                // 如果检索到了但没引用，提示相关性低
+            } else {
+                message = '未找到相关引用来源。可能是检索到的文档与问题相关性较低。';
+            }
+            // 返回警告气泡 html
+            return `
+                <div class="mt-3 p-2 bg-warning bg-opacity-10 rounded">
+                    <small class="text-warning">
+                        <i class="bi bi-exclamation-triangle"></i> ${message}
+                    </small>
+                </div>
+            `;
+        }
+        // 默认返回空字符串
+        return '';
+    }
+
+    // 渲染引用来源到 DOM 元素
+    function renderSources(sources, metadata, answerDiv) {
+        kb_id = document.getElementById("kbSelect").value;
+        const html = generateSourcesHtml(sources, metadata, kb_id);
+        if (html) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            while (tempDiv.firstChild) {
+                answerDiv && answerDiv.appendChild(tempDiv.firstChild);
+            }
+        }
+    }
+
+
+
     function renderMarkdownToElement(element, text) {
         if (!text) {
             element.innerHTML = `<i class="bi bi-hourglass-spit"></i>思考中...`
@@ -506,6 +664,7 @@
                         }
                         else if (contentType == "done") {
                             renderMarkdownToElement(answerContent, fullAnswer)
+                            renderSources(chunk.sources, chunk.metadata, answerContent)
                         }
                         else if (contentType == "error") {
                             answerContent.innerHTML += `<div class="alert alert-danger">${content}</div>`;
@@ -659,26 +818,25 @@
                 return `
                     <div class="chat-message chat-question">
                         <div class="d-flex justify-content-between align-items-start">
-                            <div class="flex-grow-1">
+                            <div class="flex-grow-1 d-flex justify-content-between">
                                 <strong><i class="bi bi-person-circle"></i> 问题:</strong>
-                                <div class="mt-1">${escapeHtml(msg.content)}</div>
+                                <small class="text-muted">${formatTime(msg.created_at)}</small>
                             </div>
-                            <small class="text-muted">${formatTime(msg.created_at)}</small>
+                            
                         </div>
+                        <div class="mt-1">${escapeHtml(msg.content)}</div>
                     </div>
                 `;
             } else {
-                const sourcesHtml = ""; ///generateSourcesHtml(msg.sources, msg.metadata, null);
                 return `
                     <div class="chat-message chat-answer">
                         <div class="d-flex justify-content-between align-items-start">
-                            <div class="flex-grow-1">
+                            <div class="flex-grow-1 d-flex justify-content-between">
                                 <strong><i class="bi bi-robot"></i> 答案:</strong>
-                                <div class="mt-2 markdown-content">${renderMarkdown(msg.content)}</div>
-                                ${sourcesHtml}
+                                 <small class="text-muted">${formatTime(msg.created_at)}</small>
                             </div>
-                            <small class="text-muted">${formatTime(msg.created_at)}</small>
                         </div>
+                        <div class="mt-2 markdown-content">${renderMarkdown(msg.content)}</div>
                     </div>
                 `;
             }

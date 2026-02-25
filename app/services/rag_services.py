@@ -87,14 +87,55 @@ class RagService(BaseService):
             if content:
                 yield {"type": "content", "content": content}
         logger.info(f"知识库查询完成,知识库ID={kb_id},问题={questions}")
+
+        # 从filter_docs中提取引用来源
+        sources = self._extract_citations(filter_docs)
+
         yield {
             "type": "done", 
             "content": "",
+            "sources": sources,
             "metadata": {
                 "kb_id": kb_id,
                 "questions": questions,
+                "retrieval_chunks": len(filter_docs),
             }
         }
+
+    def _extract_citations(self,filter_docs):
+        """
+        从filter_docs中提取引用来源
+        1. 向量检索分数 vector_score
+        2. 全文检索分数 keyword_score
+        3. 融合检索分数 rff_score
+        4. 重排序分数 rerank_score
+        5. 检索类型 retrieval_type （向量、bm25、混合）
+        """
+        sources = []
+        for doc in filter_docs:
+            metadata = doc.metadata
+            vector_score = metadata.get("vector_score",0.0)
+            keyword_score = metadata.get("keyword_score",0.0)
+            rff_score = metadata.get("rff_score",0.0)
+            rerank_score = metadata.get("rerank_score",0.0)
+            retrieval_type = metadata.get("retrieval_type","unknown")
+            doc_name = metadata.get("doc_name","未知文档")
+            chunk_id = metadata.get("chunk_id","未知chunk_id")
+            doc_id = metadata.get("doc_id","未知doc_id")
+            content = doc.page_content
+
+            sources.append({
+                "doc_name": doc_name,
+                "vector_score": vector_score * 100,
+                "keyword_score": keyword_score * 100,
+                "rff_score": rff_score * 100,
+                "rerank_score": rerank_score * 100,
+                "retrieval_type": retrieval_type,
+                "chunk_id": chunk_id,
+                "doc_id": doc_id,
+                "content": content,
+            })
+        return sources
 
 
 

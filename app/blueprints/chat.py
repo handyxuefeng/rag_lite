@@ -42,12 +42,7 @@ def llm_chat():
     # 查询知识库列表
     knowledgebase_list = knowledge_service.list(user_id=current_user.get("id"),page=page,page_size=page_size)    
 
-    logger.info(f"知识库列表lllllllllllllll={knowledgebase_list}")   
-
-
-
     return render_template("chat.html",knowledgebases=knowledgebase_list["items"])
-
 
 @bp.route("/llm", methods=["POST"])
 def chat_with_llm():
@@ -122,6 +117,12 @@ def chat_with_llm():
             for chunk in results:
                 if chunk.get("type") == "content":
                     full_answer += chunk.get("content")
+
+                elif chunk.get("type") == "done":
+                    # 当收到done消息时，说明大模型回答结束，把完整的答案记录到数据库中
+                    sources = chunk.get("sources")
+
+                #以SSE的方式输出该块的内容
                 yield f"data: {json.dumps(chunk,ensure_ascii=False)}\n\n"
 
 
@@ -130,7 +131,7 @@ def chat_with_llm():
             
             #大模型回答结束后，也要把大模型回答的内容记录到数据库中
             if full_answer: 
-                chat_service.add_message(session_id,role="assistant",content=full_answer)
+                chat_service.add_message(session_id,role="assistant",content=full_answer,sources=sources)
                 
         except Exception as e:
             logger.error(f"流式输出出错:{str(e)}")
