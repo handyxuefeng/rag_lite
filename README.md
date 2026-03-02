@@ -49,7 +49,7 @@ chmod +x minio
 - 安装attu，用于可视化管理milvus
 - docker 安装好attu后，要执行以下命令启动attu，8000端口映射容器的3000端口，
 - 然后在浏览器中访问http://localhost:8000 即可打开attu的可视化管理界面
-docker run -p 8000:3000 -e MILVUS_URL=192.168.2.253:19530 zilliz/attu:latest
+docker run -p 8000:3000 -e MILVUS_URL=192.168.2.5:19530 zilliz/attu:latest
 
 # 在摩搭社区下载以下模型到服务器
 - sentence-transformers/all-MiniLM-L6-v2
