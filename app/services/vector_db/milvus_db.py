@@ -1,4 +1,5 @@
 from langchain_milvus import Milvus
+from pymilvus import MilvusClient
 from app.services.vector_db.vector_base import VectorBaseService
 from app.config import Config
 from app.utils.logger import get_logger
@@ -90,6 +91,7 @@ class MilvusVectorDB(VectorBaseService):
             except Exception as e:
                 raise Exception(f"集合可能不存在：{e}")
 
+        expr = None
         if filter:
             expr = f"doc_id == '{filter["doc_id"]}'"
 
@@ -131,6 +133,7 @@ class MilvusVectorDB(VectorBaseService):
             except Exception as e:
                 raise Exception(f"集合可能不存在：{e}")
 
+        expr = None
         if filter:
             expr = f"doc_id == '{filter["doc_id"]}'"
 
@@ -145,8 +148,37 @@ class MilvusVectorDB(VectorBaseService):
         """
         获取集合中的所有文档内容
         """
-        vector_store_db = self.get_or_create_collection(collection_name)
-        results = vector_store_db._collection.get(include=["documents","metadatas","embeddings"])
-        if results:
-            return results
-        return None
+        try:
+            client = MilvusClient(**self.connection_args)
+            
+            if not client.has_collection(collection_name):
+                logger.error(f"集合 {collection_name} 不存在")
+                return None
+            
+            results = client.query(
+                collection_name=collection_name,
+                filter="",
+                output_fields=["*"],
+                limit=10000
+            )
+            
+            if results:
+                formatted_results = {
+                    "ids": [],
+                    "documents": [],
+                    "metadatas": [],
+                    "embeddings": []
+                }
+                for item in results:
+                    formatted_results["ids"].append(str(item.get("id", "")))
+                    formatted_results["documents"].append(item.get("text", ""))
+                    metadata = {k: v for k, v in item.items() if k not in ["id", "text", "vector"]}
+                    formatted_results["metadatas"].append(metadata)
+                    if "vector" in item:
+                        formatted_results["embeddings"].append(item["vector"])
+                
+                return formatted_results
+            return None
+        except Exception as e:
+            logger.error(f"获取集合 {collection_name} 的所有内容失败: {e}")
+            return None
