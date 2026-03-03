@@ -52,7 +52,12 @@ chmod +x minio
 docker run -p 8000:3000 -e MILVUS_URL=192.168.2.5:19530 zilliz/attu:latest
 
 # 在摩搭社区下载以下模型到服务器
+
 - sentence-transformers/all-MiniLM-L6-v2
-- sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+- cross-encoder/ms-marco-MiniLM-L6-v2
+- modelscope download --model sentence-transformers/all-MiniLM-L6-v2  --local_dir /root/rag_lite/embeddingModels/all-MiniLM-L6-v2
+
+- modelscope download --model cross-encoder/ms-marco-MiniLM-L6-v2  --local_dir /root/rag_lite/rerankerModel/ms-marco-MiniLM-L6-v2
+
 - 下载好后，如果是本地部署，在服务器上面创建一个目录embeddingModels
 ![alt text](image-1.png)
