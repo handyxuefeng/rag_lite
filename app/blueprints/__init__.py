@@ -12,8 +12,15 @@ __all__ = ["auth", "knowledgebase", "utils", "settings", "chat"]
 """
 
 
+from app.blueprints import auth
+from app.blueprints import knowledgebase
+from app.blueprints import utils
+from app.blueprints import settings
+from app.blueprints import chat
+__all__ = ["auth", "knowledgebase", "utils", "settings", "chat"]
 
 
+"""
 import os
 import importlib
 
@@ -60,3 +67,4 @@ def get_all_blueprints():
 
 # 自动导入所有蓝图模块
 auto_import_blueprints()
+"""

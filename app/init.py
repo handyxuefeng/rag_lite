@@ -88,10 +88,18 @@ def create_app(config_class=Config):
         return response_interceptor(response)
 
     # 导入路由并批量注册蓝图
-    from app.blueprints import get_all_blueprints
+    # from app.blueprints import get_all_blueprints
 
-    for blueprint in get_all_blueprints():
-        app.register_blueprint(blueprint)
+    # for blueprint in get_all_blueprints():
+    #     app.register_blueprint(blueprint)
+
+    from app.blueprints import auth, knowledgebase, settings, document, chat
+
+    app.register_blueprint(auth.bp)
+    app.register_blueprint(knowledgebase.bp)
+    app.register_blueprint(settings.bp)
+    app.register_blueprint(document.bp)
+    app.register_blueprint(chat.bp)
 
     # 返回创建的Flask应用实例
     return app
