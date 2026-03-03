@@ -46,5 +46,5 @@ class DocumentModel(BaseModel):
     # 更新时间 默认为当前时间，在数据更新的自动更新为当前最新的时间
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
-    # 复合索引，提高根据这两个条件进行查询时的速度
-    __table_args__ = (Index("name"), Index("kb_id"))
+    # 创建name字段的索引
+    __table_args__ = (Index("idx_name", "name"),)
