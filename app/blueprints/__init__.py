@@ -7,7 +7,15 @@ __all__ = ["auth", "knowledgebase"]
 上面是之前的写法，当新增一个蓝图模块时，需要手动添加到__all__中，比较麻烦
 现在改为自动导入所有蓝图模块
 """
+from app.blueprints import auth
+from app.blueprints import knowledgebase
+from app.blueprints import utils
+from app.blueprints import settings
+from app.blueprints import chat
+__all__ = ["auth", "knowledgebase", "utils", "settings", "chat"]
 
+
+"""
 import os
 import importlib
 
@@ -15,9 +23,7 @@ import importlib
 __all__ = []
 
 def auto_import_blueprints():
-    """
-    自动导入blueprints目录下所有蓝图模块
-    """
+    
     # 获取当前文件所在目录
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -56,3 +62,4 @@ def get_all_blueprints():
 
 # 自动导入所有蓝图模块
 auto_import_blueprints()
+"""
