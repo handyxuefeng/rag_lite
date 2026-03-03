@@ -10,17 +10,6 @@ __all__ = ["auth", "knowledgebase", "utils", "settings", "chat"]
 上面是之前的写法，当新增一个蓝图模块时，需要手动添加到__all__中，比较麻烦
 现在改为自动导入所有蓝图模块
 """
-
-
-from app.blueprints import auth
-from app.blueprints import knowledgebase
-from app.blueprints import utils
-from app.blueprints import settings
-from app.blueprints import chat
-__all__ = ["auth", "knowledgebase", "utils", "settings", "chat"]
-
-
-"""
 import os
 import importlib
 
@@ -67,4 +56,4 @@ def get_all_blueprints():
 
 # 自动导入所有蓝图模块
 auto_import_blueprints()
-"""
+
