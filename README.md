@@ -45,7 +45,12 @@ chmod +x minio
 ![alt text](image.png)
 
 # 用docker安装milvus
-- 
+- 说明：docker 安装milvus 2.3.1 版本，需要docker 1.13 以上版本，docker 1.13 以下版本不支持docker compose v2
+- 安装docker compose v2
+- 安装milvus，执行以下命令
+docker compose -f docker-compose.yml up -d
+
+# 安装attu，用于可视化管理milvus
 - 安装attu，用于可视化管理milvus
 - docker 安装好attu后，要执行以下命令启动attu，8000端口映射容器的3000端口，
 - 然后在浏览器中访问http://localhost:8000 即可打开attu的可视化管理界面
