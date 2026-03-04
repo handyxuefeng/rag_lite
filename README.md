@@ -1,13 +1,25 @@
-# 使用 pip 安装
-pip install uv
+# 知识库项目功能点
+ - 首页
+ ![alt text](image-2.png)
+- 知识库管理模块
+![alt text](image-3.png)
+- 知识库文档管理
+![alt text](image-4.png)
+![alt text](image-5.png)
+- 知识库文档查询和智能问答
+![alt text](image-6.png)
+- 模型管理模块
+![alt text](image-7.png)
+![alt text](image-8.png)
+![alt text](image-9.png)
+![alt text](image-10.png)
 
-# 或使用官方安装脚本（Linux/Mac）
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Windows
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-
-# 安装mysql
+# 技术栈
+- 前端：Flask + Bootstrap + HTML5 + JavaScript
+- 后端：Python + Flask
+- 数据库：MySQL + Milvus(向量数据库)/Chroma(向量数据库)
+- 大语言模型（LLM）应用开发框架 ：Langchain
+- 模型：对话模型：DeepSeek(deepseek-chat)，向量嵌入模型：sentence-transformers/all-MiniLM-L6-v2 , 重排序模型:ms-marco-MiniLM-L6-v2
 
 
 # 通过uv安装项目依赖
