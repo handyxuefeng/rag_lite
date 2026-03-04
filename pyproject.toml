@@ -3,7 +3,7 @@ name = "rag-lite-project"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
    "alembic>=1.18.0",
    "cryptography>=46.0.3",
