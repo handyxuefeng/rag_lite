@@ -1,13 +1,25 @@
-# 使用 pip 安装
-pip install uv
+# 知识库项目功能点
+ - 首页
+ ![alt text](image-2.png)
+- 知识库管理模块
+![alt text](image-3.png)
+- 知识库文档管理
+![alt text](image-4.png)
+![alt text](image-5.png)
+- 知识库文档查询和智能问答
+![alt text](image-6.png)
+- 模型管理模块
+![alt text](image-7.png)
+![alt text](image-8.png)
+![alt text](image-9.png)
+![alt text](image-10.png)
 
-# 或使用官方安装脚本（Linux/Mac）
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Windows
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-
-# 安装mysql
+# 技术栈
+- 前端：Flask + Bootstrap + HTML5 + JavaScript
+- 后端：Python + Flask
+- 数据库：MySQL + Milvus(向量数据库)/Chroma(向量数据库)
+- 大语言模型（LLM）应用开发框架 ：Langchain
+- 模型：对话模型：DeepSeek(deepseek-chat)，向量嵌入模型：sentence-transformers/all-MiniLM-L6-v2 , 重排序模型:ms-marco-MiniLM-L6-v2
 
 
 # 通过uv安装项目依赖
@@ -45,11 +57,16 @@ chmod +x minio
 ![alt text](image.png)
 
 # 用docker安装milvus
-- 
+- 说明：docker 安装milvus 2.3.1 版本，需要docker 1.13 以上版本，docker 1.13 以下版本不支持docker compose v2
+- 安装docker compose v2
+- 安装milvus，执行以下命令
+docker compose -f docker-compose.yml up -d
+
+# 安装attu，用于可视化管理milvus
 - 安装attu，用于可视化管理milvus
 - docker 安装好attu后，要执行以下命令启动attu，8000端口映射容器的3000端口，
 - 然后在浏览器中访问http://localhost:8000 即可打开attu的可视化管理界面
-docker run -p 8000:3000 -e MILVUS_URL=192.168.2.125:19530 zilliz/attu:latest
+docker run -p 8000:3000 -e MILVUS_URL=192.168.2.5:19530 zilliz/attu:latest
 
 # 在摩搭社区下载以下模型到服务器
 
